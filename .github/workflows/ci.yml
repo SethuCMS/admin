@@ -38,7 +38,7 @@ jobs:
         run: |
           if grep -rqE "fonts\.(googleapis|gstatic)\.com" dist; then echo "dist loads fonts from the internet"; exit 1; fi
           ls dist/assets | grep -q woff2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.node == 22
         with:
           name: admin-dist
