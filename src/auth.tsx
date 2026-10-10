@@ -1,0 +1,155 @@
+/**
+ * Session handling: token sign-in, sign-out and live gateway events.
+ */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  gateway,
+  hasToken,
+  onSessionEnded,
+  setToken,
+  usingSampleData,
+  type GatewayEvent,
+  type Me,
+} from './api';
+
+/** What components get from `useAuth`; `me` is null when signed out. */
+interface AuthValue {
+  me: Me | null;
+  signIn(token: string): Promise<void>;
+  signOut(): void;
+}
+
+const AuthContext = createContext<AuthValue | null>(null);
+
+/**
+ * Access the signed-in user and sign-in/out actions. Throws outside
+ * AuthProvider so a missing provider fails fast.
+ */
+export function useAuth(): AuthValue {
+  const value = useContext(AuthContext);
+  if (!value) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
+  return value;
+}
+
+// "checking" blocks rendering while a stored token is verified.
+type Phase = 'checking' | 'ready';
+
+/**
+ * Holds the session. On load it verifies any stored token with the gateway
+ * before rendering, so the UI never flashes signed-in content for a dead
+ * session.
+ */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [me, setMe] = useState<Me | null>(null);
+  const [phase, setPhase] = useState<Phase>(
+    // Nothing to verify: sample mode or no stored token.
+    usingSampleData || !hasToken() ? 'ready' : 'checking',
+  );
+
+  const signOut = useCallback(() => {
+    // Best effort and not awaited: local sign-out must succeed even if the
+    // gateway is unreachable.
+    void gateway.logout(); // ends a single sign-on session on the gateway (an API token is left alone)
+    setToken(null);
+    setMe(null);
+  }, []);
+
+  useEffect(() => {
+    // The API layer calls this when any request gets a 401, so an expired
+    // session drops back to the sign-in screen.
+    onSessionEnded(() => setMe(null));
+    if (usingSampleData || !hasToken()) {
+      return () => onSessionEnded(null);
+    }
+    gateway
+      .me()
+      .then(setMe)
+      // A rejected stored token just means signed out.
+      .catch(() => setMe(null))
+      // Always leave "checking", success or not.
+      .finally(() => setPhase('ready'));
+    return () => onSessionEnded(null);
+  }, []);
+
+  const signIn = useCallback(async (token: string) => {
+    // Store first because `gateway.me()` reads the token from storage.
+    setToken(token.trim());
+    try {
+      setMe(await gateway.me());
+    } catch (error) {
+      // Roll back so a bad token is not kept; the caller shows the error.
+      setToken(null);
+      throw error;
+    }
+  }, []);
+
+  const value = useMemo(() => ({ me, signIn, signOut }), [me, signIn, signOut]);
+  if (phase === 'checking') {
+    return (
+      <div className="boot" aria-busy="true">
+        Signing you in…
+      </div>
+    );
+  }
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * Calls `onEvent` for changes made through the gateway. Reconnects with a short
+ * delay.
+ */
+/**
+ * Subscribe to live change events from the gateway (server-sent stream). Only
+ * runs for a signed-in user, and reconnects after a short delay when the stream
+ * drops.
+ */
+export function useGatewayEvents(
+  onEvent: (event: GatewayEvent) => void,
+  enabled = true,
+): void {
+  const { me } = useAuth();
+  // Ref keeps the stream open while always calling the newest handler.
+  const latest = useRef(onEvent);
+  latest.current = onEvent;
+  useEffect(() => {
+    if (!enabled || !me || usingSampleData) {
+      return;
+    }
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const connect = () => {
+      gateway
+        .streamEvents((event) => latest.current(event), controller.signal)
+        // Drops are expected (network, deploys); the reconnect below handles
+        // them.
+        .catch(() => undefined)
+        .finally(() => {
+          // Do not reconnect after cleanup.
+          if (!controller.signal.aborted) {
+            timer = setTimeout(connect, 3000);
+          }
+        });
+    };
+    connect();
+
+    return () => {
+      controller.abort();
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [me, enabled]);
+}

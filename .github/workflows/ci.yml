@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Type check and build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm typecheck
+      - name: Build for a separate API address
+        run: pnpm build
+      - name: Build for the gateway to serve (same address)
+        run: pnpm build:embedded
+      - name: Check that fonts are bundled, not loaded from the internet
+        run: |
+          if grep -rqE "fonts\.(googleapis|gstatic)\.com" dist; then echo "dist loads fonts from the internet"; exit 1; fi
+          ls dist/assets | grep -q woff2
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: admin-dist
+          path: dist
+          retention-days: 7
+
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          [ "${{ needs.build.result }}" = "success" ]
