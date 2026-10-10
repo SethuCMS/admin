@@ -27,7 +27,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build:embedded
       - run: tar -czf sethucms-admin-${{ github.ref_name }}.tgz -C dist .
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           body: |
