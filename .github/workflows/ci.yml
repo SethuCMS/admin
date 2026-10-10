@@ -21,11 +21,11 @@ jobs:
       matrix:
         node: [20, 22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
       - run: pnpm install --no-frozen-lockfile
@@ -38,7 +38,7 @@ jobs:
         run: |
           if grep -rqE "fonts\.(googleapis|gstatic)\.com" dist; then echo "dist loads fonts from the internet"; exit 1; fi
           ls dist/assets | grep -q woff2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.node == 22
         with:
           name: admin-dist
