@@ -34,48 +34,10 @@ const NAV: Array<{
   { name: 'settings', href: '#/settings', label: 'Settings' },
 ];
 
-/**
- * The four-square mark: one filled square, three open ones. Echoes the
- * capability grid.
- */
+/** The SethuCMS bridge logo (same file as the favicon). */
 function Mark() {
   return (
-    <svg
-      className="mark"
-      viewBox="0 0 32 32"
-      width="26"
-      height="26"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="12" height="12" fill="currentColor" />
-      <rect
-        x="17"
-        y="3"
-        width="12"
-        height="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      />
-      <rect
-        x="3"
-        y="17"
-        width="12"
-        height="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      />
-      <rect
-        x="17"
-        y="17"
-        width="12"
-        height="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      />
-    </svg>
+    <img className="mark" src={`${import.meta.env.BASE_URL}logo.svg`} width="30" height="30" alt="" />
   );
 }
 

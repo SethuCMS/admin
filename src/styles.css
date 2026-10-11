@@ -153,6 +153,7 @@ a {
 .mark {
   color: #7b95ff;
   flex: none;
+  border-radius: 7px;
 }
 
 .nav-list {
@@ -1291,4 +1292,24 @@ a {
 .migrate-errors summary {
   cursor: pointer;
   font-weight: 600;
+}
+
+/* ---------- Sign in with an authenticator code ---------- */
+.signin-logo {
+  border-radius: 12px;
+}
+.signin-code,
+.signin-token {
+  display: grid;
+  gap: 14px;
+}
+.code-input {
+  font-size: var(--step-1);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+.signin-alt summary {
+  cursor: pointer;
+  color: var(--muted, inherit);
+  margin-bottom: 12px;
 }

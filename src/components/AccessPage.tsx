@@ -1,9 +1,10 @@
 /**
- * Roles and API token management (admin only).
+ * People (authenticator-app sign-in), roles and API token management (admin
+ * only).
  */
 
 import { useState, type FormEvent } from 'react';
-import { gateway, type Role } from '../api';
+import { gateway, type PersonSetup, type Role } from '../api';
 import { timeAgo } from '../lib/time';
 import { useAsync } from '../useAsync';
 
@@ -33,6 +34,59 @@ const ROLES: Array<{ role: Role; label: string; summary: string }> = [
  */
 export function AccessPage() {
   const { state, reload } = useAsync(() => gateway.tokens(), 'tokens');
+  const people = useAsync(() => gateway.people(), 'people');
+  const [username, setUsername] = useState('');
+  const [personRole, setPersonRole] = useState<Role>('editor');
+  const [setup, setSetup] = useState<PersonSetup | null>(null);
+  const [personError, setPersonError] = useState<string | null>(null);
+
+  // The setup key is held in memory only until the person is dismissed.
+  const addPerson = async (event: FormEvent) => {
+    event.preventDefault();
+    setPersonError(null);
+    try {
+      setSetup(await gateway.createPerson({ username, role: personRole }));
+      setUsername('');
+      people.reload();
+    } catch (cause) {
+      setPersonError(
+        cause instanceof Error ? cause.message : 'The person could not be added.',
+      );
+    }
+  };
+  const resetPerson = async (id: string) => {
+    setPersonError(null);
+    try {
+      setSetup(await gateway.resetPerson(id));
+      people.reload();
+    } catch (cause) {
+      setPersonError(
+        cause instanceof Error ? cause.message : 'The key could not be reset.',
+      );
+    }
+  };
+  const changeRole = async (id: string, next: Role) => {
+    setPersonError(null);
+    try {
+      await gateway.setPersonRole(id, next);
+    } catch (cause) {
+      setPersonError(
+        cause instanceof Error ? cause.message : 'The role could not be changed.',
+      );
+    }
+    people.reload();
+  };
+  const removePerson = async (id: string) => {
+    setPersonError(null);
+    try {
+      await gateway.removePerson(id);
+      people.reload();
+    } catch (cause) {
+      setPersonError(
+        cause instanceof Error ? cause.message : 'The person could not be removed.',
+      );
+    }
+  };
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('editor');
   const [expires, setExpires] = useState('');
@@ -101,7 +155,8 @@ export function AccessPage() {
     <div className="page">
       <h1 className="page-title">Roles and access</h1>
       <p className="muted section-lede">
-        People and apps sign in with API tokens. Each token has one role.
+        People sign in with a code from an authenticator app. Apps and websites
+        use API tokens. Each person and each token has one role.
       </p>
 
       <ul className="rows roles">
@@ -114,6 +169,134 @@ export function AccessPage() {
           </li>
         ))}
       </ul>
+
+      <section className="section" aria-labelledby="people-heading">
+        <h2 id="people-heading">People</h2>
+        <p className="muted small">
+          Add a person, then give them the setup key. In Google Authenticator
+          choose <em>Add a code</em>, then <em>Enter a setup key</em>. Their first
+          correct code finishes the setup.
+        </p>
+
+        <form className="inline-form" onSubmit={addPerson}>
+          <label className="field grow">
+            <span className="field-label">Username</span>
+            <input
+              className="input"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              minLength={3}
+              maxLength={40}
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              placeholder="asha"
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">Role</span>
+            <select
+              className="input"
+              value={personRole}
+              onChange={(event) => setPersonRole(event.target.value as Role)}
+            >
+              {ROLES.map((item) => (
+                <option key={item.role} value={item.role}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="button" type="submit">
+            Add person
+          </button>
+        </form>
+
+        {setup ? (
+          <div className="panel secret" role="status">
+            <p>
+              <strong>Setup key for {setup.username}.</strong> It cannot be shown
+              again.
+            </p>
+            <code className="token-value">{setup.secret}</code>
+            <p className="muted small">
+              On a phone, <a href={setup.otpauthUri}>open this link</a> to add it
+              to the authenticator app.
+            </p>
+            <button
+              className="button button-small button-quiet"
+              type="button"
+              onClick={() => setSetup(null)}
+            >
+              I have added it
+            </button>
+          </div>
+        ) : null}
+        {personError ? (
+          <p className="form-error" role="alert">
+            {personError}
+          </p>
+        ) : null}
+
+        {people.state.status === 'ready' ? (
+          people.state.data.length === 0 ? (
+            <p className="muted">No one yet. Add the first person above.</p>
+          ) : (
+            <ul className="rows">
+              {people.state.data.map((person) => (
+                <li className="row" key={person.id}>
+                  <div className="row-main">
+                    <span>
+                      {person.username}{' '}
+                      <select
+                        className="input"
+                        aria-label={`Role for ${person.username}`}
+                        value={person.role}
+                        onChange={(event) =>
+                          changeRole(person.id, event.target.value as Role)
+                        }
+                      >
+                        {ROLES.map((item) => (
+                          <option key={item.role} value={item.role}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                    <span className="muted small">
+                      {person.enabled
+                        ? 'Authenticator set up'
+                        : 'Waiting for the first code'}{' '}
+                      · added {timeAgo(person.createdAt)}
+                    </span>
+                  </div>
+                  <button
+                    className="button button-small button-quiet"
+                    type="button"
+                    onClick={() => resetPerson(person.id)}
+                    title="Make a new setup key and sign this person out."
+                  >
+                    New key
+                  </button>
+                  <button
+                    className="button button-small button-danger-quiet"
+                    type="button"
+                    onClick={() => removePerson(person.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : people.state.status === 'error' ? (
+          <p className="form-error" role="alert">
+            {people.state.message}
+          </p>
+        ) : (
+          <p className="muted">Loading…</p>
+        )}
+      </section>
 
       <section className="section" aria-labelledby="tokens-heading">
         <h2 id="tokens-heading">API tokens</h2>

@@ -1,5 +1,6 @@
 /**
- * Session handling: token sign-in, sign-out and live gateway events.
+ * Session handling: authenticator-code and token sign-in, sign-out and live
+ * gateway events.
  */
 
 import {
@@ -26,6 +27,8 @@ import {
 interface AuthValue {
   me: Me | null;
   signIn(token: string): Promise<void>;
+  /** Sign in with an authenticator-app code. */
+  signInWithCode(username: string, code: string): Promise<void>;
   signOut(): void;
 }
 
@@ -95,7 +98,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ me, signIn, signOut }), [me, signIn, signOut]);
+  const signInWithCode = useCallback(async (username: string, code: string) => {
+    const session = await gateway.totpLogin(username.trim(), code.trim());
+    setToken(session.token);
+    try {
+      setMe(await gateway.me());
+    } catch (error) {
+      setToken(null);
+      throw error;
+    }
+  }, []);
+
+  const value = useMemo(
+    () => ({ me, signIn, signInWithCode, signOut }),
+    [me, signIn, signInWithCode, signOut],
+  );
   if (phase === 'checking') {
     return (
       <div className="boot" aria-busy="true">

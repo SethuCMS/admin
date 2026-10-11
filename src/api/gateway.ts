@@ -234,6 +234,25 @@ export interface TokenInfo {
   expiresAt?: string;
 }
 
+/** A person who signs in with an authenticator app. */
+export interface PersonInfo {
+  id: string;
+  username: string;
+  name: string;
+  role: Role;
+  /** False until their first correct code. */
+  enabled: boolean;
+  createdAt: string;
+}
+
+/** What the gateway returns when a person is added or reset: shown once. */
+export interface PersonSetup extends PersonInfo {
+  /** The setup key to type into the authenticator app. */
+  secret: string;
+  /** The same key as a link; opens the authenticator app on a phone. */
+  otpauthUri: string;
+}
+
 /** One audit-log entry. */
 export interface AuditItem {
   id: string;
@@ -480,6 +499,24 @@ export const gateway = {
       () => ({ enabled: false }),
     ),
   /**
+   * Does the gateway have people set up for authenticator-app sign-in? Never
+   * throws: the API-token form still works.
+   */
+  totpConfig: (signal?: AbortSignal): Promise<{ enabled: boolean }> =>
+    request<{ totp?: { enabled?: boolean } }>('GET', '/v1/auth/config', {
+      signal,
+    }).then(
+      (r) => ({ enabled: r.totp?.enabled === true }),
+      () => ({ enabled: false }),
+    ),
+  /** Sign in with a username and the 6-digit code from the authenticator app. */
+  totpLogin: (username: string, code: string) =>
+    request<{ data: { token: string; expiresAt: string } }>(
+      'POST',
+      '/v1/auth/totp/login',
+      { body: { username, code } },
+    ).then((r) => r.data),
+  /**
    * Ends a single sign-on session on the gateway. Best effort: signing out here
    * always works.
    */
@@ -675,6 +712,25 @@ export const gateway = {
     ).then((r) => r.data),
   revokeToken: (id: string) =>
     request<void>('DELETE', `/v1/admin/tokens/${enc(id)}`),
+  people: () =>
+    request<{ data: PersonInfo[] }>('GET', '/v1/admin/people').then(
+      (r) => r.data,
+    ),
+  createPerson: (body: { username: string; name?: string; role: Role }) =>
+    request<{ data: PersonSetup }>('POST', '/v1/admin/people', { body }).then(
+      (r) => r.data,
+    ),
+  resetPerson: (id: string) =>
+    request<{ data: PersonSetup }>(
+      'POST',
+      `/v1/admin/people/${enc(id)}/reset`,
+    ).then((r) => r.data),
+  setPersonRole: (id: string, role: Role) =>
+    request<unknown>('PATCH', `/v1/admin/people/${enc(id)}`, {
+      body: { role },
+    }),
+  removePerson: (id: string) =>
+    request<void>('DELETE', `/v1/admin/people/${enc(id)}`),
   audit: (limit = 100, signal?: AbortSignal) =>
     request<{ data: AuditItem[] }>('GET', `/v1/admin/audit?limit=${limit}`, {
       signal,

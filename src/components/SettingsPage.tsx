@@ -1,13 +1,6 @@
-/**
- * Settings page.
- */
-
-import { absoluteUrl, usingSampleData } from '../api';
+import { absoluteUrl, askForGateway, forgetGateway, usingSampleData } from '../api';
 import { useAuth } from '../auth';
 
-/**
- * Shows which gateway the admin talks to and who is signed in.
- */
 export function SettingsPage() {
   const { me, signOut } = useAuth();
   return (
@@ -31,6 +24,13 @@ export function SettingsPage() {
           </div>
         ) : null}
       </dl>
+      {askForGateway ? (
+        <p>
+          <button className="button button-outline" type="button" onClick={forgetGateway}>
+            Use a different gateway
+          </button>
+        </p>
+      ) : null}
       {me ? (
         <p>
           <button

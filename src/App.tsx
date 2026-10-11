@@ -3,12 +3,13 @@
  */
 
 import { useEffect } from 'react';
-import { usingSampleData } from './api';
+import { needsGateway, usingSampleData } from './api';
 import { AuthProvider, useAuth, useGatewayEvents } from './auth';
 import { AccessPage } from './components/AccessPage';
 import { AuditPage } from './components/AuditPage';
 import { MigratePage } from './components/MigratePage';
 import { ComingNext } from './components/ComingNext';
+import { ConnectGateway } from './components/ConnectGateway';
 import { ConnectionDetailPage } from './components/ConnectionDetailPage';
 import { ConnectionsPage } from './components/ConnectionsPage';
 import { ContentPage } from './components/ContentPage';
@@ -33,6 +34,9 @@ const TITLES: Record<Route['name'], string> = {
 
 /** Root component: wraps everything in the auth session. */
 export function App() {
+  if (needsGateway) {
+    return <ConnectGateway />;
+  }
   return (
     <AuthProvider>
       <Frame />
