@@ -206,6 +206,8 @@ export interface ConnectionDetail {
   health: string;
   healthNote?: string;
   lastCheckedAt: string;
+  /** True when this connection lets an admin declare a new, empty collection. */
+  canCreateCollections?: boolean;
   capabilities: {
     joins: boolean;
     transactions: string;
@@ -735,6 +737,20 @@ export const gateway = {
       'PUT',
       `/v1/admin/connections/${enc(id)}/collections/${enc(collection)}`,
       { body: { exposed } },
+    ).then((r) => r.data),
+  /** Declare a new, empty collection (Firestore). It is switched on unless `expose` is false. */
+  createCollection: (
+    id: string,
+    body: {
+      name: string;
+      fields?: Array<{ name: string; type: string; required?: boolean }>;
+      expose?: boolean;
+    },
+  ) =>
+    request<{ data: ConnectionDetail }>(
+      'POST',
+      `/v1/admin/connections/${enc(id)}/collections`,
+      { body, headers: idempotency() },
     ).then((r) => r.data),
 
   tokens: () =>

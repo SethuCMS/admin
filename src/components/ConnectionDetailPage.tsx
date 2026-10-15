@@ -2,7 +2,7 @@
  * Detail page for one connection (admin only).
  */
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { gateway, type ConnectionDetail } from '../api';
 import { capabilityCells } from '../lib/capabilities';
 import { timeAgo } from '../lib/time';
@@ -31,6 +31,9 @@ export function ConnectionDetailPage({
   // overlap.
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The "create a collection" form.
+  const [newName, setNewName] = useState('');
+  const [newFields, setNewFields] = useState('');
 
   if (state.status === 'loading') {
     return (
@@ -110,6 +113,27 @@ export function ConnectionDetailPage({
       await gateway.setExposed(connection.id, name, exposed);
       reload();
     });
+  // Declares a new, empty collection. The database makes it with its first
+  // record; only the definition is saved now.
+  const create = (event: FormEvent) => {
+    event.preventDefault();
+    const name = newName.trim();
+    const fields = parseFields(newFields);
+    if (typeof fields === 'string') {
+      setNotice({ kind: 'error', text: fields });
+      return;
+    }
+    return run('create', async () => {
+      await gateway.createCollection(connection.id, { name, fields });
+      setNewName('');
+      setNewFields('');
+      setNotice({
+        kind: 'ok',
+        text: `Created ${name}. It is switched on, so editors and the API can use it.`,
+      });
+      reload();
+    });
+  };
   // Removes only the connection and its drafts; the database itself is
   // untouched.
   const remove = () =>
@@ -187,8 +211,51 @@ export function ConnectionDetailPage({
         <p className="muted section-lede">
           Only collections you turn on are available to editors and the API.
         </p>
+        {connection.canCreateCollections ? (
+          <form className="inline-form" onSubmit={create}>
+            <label className="field">
+              <span className="field-label">New collection</span>
+              <input
+                className="input"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                maxLength={63}
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                placeholder="projects"
+              />
+            </label>
+            <label className="field grow">
+              <span className="field-label">Fields</span>
+              <input
+                className="input"
+                value={newFields}
+                onChange={(event) => setNewFields(event.target.value)}
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                placeholder="title:string, summary:text, year:integer"
+              />
+            </label>
+            <button className="button" type="submit" disabled={busy !== null}>
+              {busy === 'create' ? 'Creating…' : 'Create collection'}
+            </button>
+          </form>
+        ) : null}
+        {connection.canCreateCollections ? (
+          <p className="field-hint">
+            Fields are name and type, separated by commas. Types:{' '}
+            {FIELD_TYPES.join(', ')}. The database makes the collection when
+            its first record is saved.
+          </p>
+        ) : null}
         {connection.collections.length === 0 ? (
-          <p className="empty">No collections were found in this database.</p>
+          <p className="empty">
+            {connection.canCreateCollections
+              ? 'This database has no collections yet. Create the first one above.'
+              : 'No collections were found in this database.'}
+          </p>
         ) : (
           <ul className="rows">
             {connection.collections.map((collection) => (
@@ -314,6 +381,56 @@ export function ConnectionDetailPage({
       </section>
     </div>
   );
+}
+
+const FIELD_TYPES = [
+  'string',
+  'text',
+  'integer',
+  'decimal',
+  'boolean',
+  'datetime',
+  'date',
+  'json',
+  'array',
+];
+
+/**
+ * Read "title:string, year:integer" into fields. Returns a message the person
+ * can act on when something is wrong. The gateway checks everything again.
+ */
+function parseFields(text: string): Array<{ name: string; type: string }> | string {
+  const parts = text
+    .split(/[,\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) {
+    return 'Add at least one field, for example title:string.';
+  }
+  const seen = new Set<string>();
+  const fields: Array<{ name: string; type: string }> = [];
+  for (const part of parts) {
+    const [name, rawType = 'string', ...extra] = part
+      .split(':')
+      .map((piece) => piece.trim());
+    if (
+      name === undefined ||
+      extra.length > 0 ||
+      !/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(name)
+    ) {
+      return `"${part}" is not a valid field. Use name:type, for example title:string.`;
+    }
+    const type = rawType.toLowerCase();
+    if (!FIELD_TYPES.includes(type)) {
+      return `"${rawType}" is not a field type. Use one of: ${FIELD_TYPES.join(', ')}.`;
+    }
+    if (seen.has(name)) {
+      return `The field "${name}" appears twice.`;
+    }
+    seen.add(name);
+    fields.push({ name, type });
+  }
+  return fields;
 }
 
 /** Health status as dot plus text, with the gateway's explanation if any. */
