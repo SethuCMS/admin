@@ -499,6 +499,49 @@ export const gateway = {
       () => ({ enabled: false }),
     ),
   /**
+   * Which social sign-in methods does the gateway offer? Never throws: the
+   * other sign-in forms still work.
+   */
+  socialConfig: (signal?: AbortSignal): Promise<SocialConfig> =>
+    request<{
+      oidc?: { enabled?: boolean; provider?: string };
+      github?: { enabled?: boolean };
+      firebase?: {
+        enabled?: boolean;
+        apiKey?: string;
+        authDomain?: string;
+        projectId?: string;
+        providers?: string[];
+      };
+    }>('GET', '/v1/auth/config', { signal }).then(
+      (r) => ({
+        sso: r.oidc?.enabled === true,
+        google: r.oidc?.enabled === true && r.oidc.provider === 'google',
+        github: r.github?.enabled === true,
+        ...(r.firebase?.enabled &&
+        r.firebase.apiKey &&
+        r.firebase.authDomain &&
+        r.firebase.projectId
+          ? {
+              firebase: {
+                apiKey: r.firebase.apiKey,
+                authDomain: r.firebase.authDomain,
+                projectId: r.firebase.projectId,
+                providers: r.firebase.providers ?? [],
+              },
+            }
+          : {}),
+      }),
+      () => ({ sso: false, google: false, github: false }),
+    ),
+  /** Trade a Firebase ID token for a SethuCMS session. */
+  firebaseLogin: (idToken: string) =>
+    request<{ data: { token: string; expiresAt: string } }>(
+      'POST',
+      '/v1/auth/firebase',
+      { body: { idToken } },
+    ).then((r) => r.data),
+  /**
    * Does the gateway have people set up for authenticator-app sign-in? Never
    * throws: the API-token form still works.
    */
@@ -816,3 +859,20 @@ export const gateway = {
     }
   },
 };
+
+/** The social sign-in methods a gateway offers (from /v1/auth/config). */
+export interface SocialConfig {
+  /** Some OpenID Connect provider is set up. */
+  sso: boolean;
+  /** That provider is Google. */
+  google: boolean;
+  /** Direct GitHub sign-in is set up. */
+  github: boolean;
+  /** Firebase Authentication is set up; public web settings for the popup. */
+  firebase?: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    providers: string[];
+  };
+}

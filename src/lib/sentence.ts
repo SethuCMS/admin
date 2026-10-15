@@ -43,10 +43,20 @@ export function summarize(overview: Overview): {
     return { headline: 'Connect a database to get started.', allClear: false };
   }
 
+  // "No of one connection is healthy" reads badly, so zero has its own wording.
+  const unchecked = overview.connections.filter(
+    (c) => c.health === 'pending',
+  ).length;
   const first =
     healthy === total
       ? `${total === 1 ? 'Your connection is' : `All ${word(total, false)} connections are`} healthy.`
-      : `${word(healthy, true)} of ${word(total, false)} ${plural(total, 'connection is', 'connections are')} healthy.`;
+      : healthy === 0
+        ? total === 1
+          ? unchecked === 1
+            ? 'Your connection has not been checked yet.'
+            : 'Your connection is not healthy.'
+          : `None of your ${word(total, false)} connections are healthy yet.`
+        : `${word(healthy, true)} of ${word(total, false)} ${plural(total, 'connection is', 'connections are')} healthy.`;
 
   const second =
     waiting === 0

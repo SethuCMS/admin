@@ -7,6 +7,11 @@
  *   a URL   that gateway
  *   "ask"   hosted admin: each person types the address of their own gateway,
  *           which is remembered in this browser
+ *
+ * VITE_DEFAULT_GATEWAY (only with "ask"): a gateway address built into this
+ * deployment, used when the browser has none saved. For your own site, so you
+ * skip the "Connect to your gateway" screen. It is fixed at build time, so a
+ * link still cannot change it.
  */
 
 import { configureGateway, gateway } from './gateway';
@@ -72,7 +77,22 @@ export function normalizeGatewayUrl(input: string): string {
   return url.origin;
 }
 
-const baseUrl = askForGateway ? (savedGateway() ?? '') : configured;
+/** The gateway address built into this deployment, if it is valid. */
+export const defaultGateway: string | null = (() => {
+  const value = askForGateway ? import.meta.env.VITE_DEFAULT_GATEWAY : undefined;
+  if (typeof value !== 'string' || value === '') {
+    return null;
+  }
+  try {
+    return normalizeGatewayUrl(value);
+  } catch {
+    return null;
+  }
+})();
+
+const baseUrl = askForGateway
+  ? (savedGateway() ?? defaultGateway ?? '')
+  : configured;
 
 /** True while the hosted admin still needs the person's gateway address. */
 export const needsGateway = askForGateway && !baseUrl;

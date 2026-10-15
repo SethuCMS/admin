@@ -14,6 +14,11 @@ const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 /** "2 minutes ago", "yesterday". */
 export function timeAgo(iso: string, now: number = Date.now()): string {
+  // An empty or epoch date means it never happened, not "20,000 days ago".
+  const at = new Date(iso).getTime();
+  if (!Number.isFinite(at) || at < Date.UTC(2001, 0, 1)) {
+    return 'Never';
+  }
   // Negative for past times, which gives "ago" wording.
   const elapsed = new Date(iso).getTime() - now;
   for (const [unit, size] of STEPS) {

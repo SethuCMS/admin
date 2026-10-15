@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react';
 import { gateway, type PersonSetup, type Role } from '../api';
 import { timeAgo } from '../lib/time';
 import { useAsync } from '../useAsync';
+import { SetupKey } from './SetupKey';
 
 // Role descriptions; mirror what the gateway enforces.
 const ROLES: Array<{ role: Role; label: string; summary: string }> = [
@@ -218,11 +219,7 @@ export function AccessPage() {
               <strong>Setup key for {setup.username}.</strong> It cannot be shown
               again.
             </p>
-            <code className="token-value">{setup.secret}</code>
-            <p className="muted small">
-              On a phone, <a href={setup.otpauthUri}>open this link</a> to add it
-              to the authenticator app.
-            </p>
+            <SetupKey secret={setup.secret} otpauthUri={setup.otpauthUri} />
             <button
               className="button button-small button-quiet"
               type="button"

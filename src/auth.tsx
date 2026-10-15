@@ -21,7 +21,10 @@ import {
   usingSampleData,
   type GatewayEvent,
   type Me,
+  type PersonSetup,
+  type SocialConfig,
 } from './api';
+import { firebaseIdToken } from './lib/firebase-signin';
 
 /** What components get from `useAuth`; `me` is null when signed out. */
 interface AuthValue {
@@ -29,6 +32,16 @@ interface AuthValue {
   signIn(token: string): Promise<void>;
   /** Sign in with an authenticator-app code. */
   signInWithCode(username: string, code: string): Promise<void>;
+  /** Sign in through the Firebase Google or GitHub popup. */
+  signInWithFirebase(
+    firebase: NonNullable<SocialConfig['firebase']>,
+    provider: 'google' | 'github',
+  ): Promise<void>;
+  /**
+   * First start: use the one-time setup token to create the first admin
+   * account. The token is not kept; the person then signs in with a code.
+   */
+  startSetup(setupToken: string, username: string): Promise<PersonSetup>;
   signOut(): void;
 }
 
@@ -109,9 +122,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signInWithFirebase = useCallback(
+    async (
+      firebase: NonNullable<SocialConfig['firebase']>,
+      provider: 'google' | 'github',
+    ) => {
+      const idToken = await firebaseIdToken(firebase, provider);
+      const session = await gateway.firebaseLogin(idToken);
+      setToken(session.token);
+      try {
+        setMe(await gateway.me());
+      } catch (error) {
+        setToken(null);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const startSetup = useCallback(async (setupToken: string, username: string) => {
+    // The token is used for this one request and then dropped.
+    setToken(setupToken.trim());
+    try {
+      return await gateway.createPerson({
+        username: username.trim().toLowerCase(),
+        role: 'admin',
+      });
+    } finally {
+      setToken(null);
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ me, signIn, signInWithCode, signOut }),
-    [me, signIn, signInWithCode, signOut],
+    () => ({ me, signIn, signInWithCode, signInWithFirebase, startSetup, signOut }),
+    [me, signIn, signInWithCode, signInWithFirebase, startSetup, signOut],
   );
   if (phase === 'checking') {
     return (

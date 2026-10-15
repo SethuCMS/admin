@@ -1,7 +1,3 @@
-/**
- * Home page.
- */
-
 import { usingSampleData } from '../api';
 import type { OverviewState } from '../useOverview';
 import { summarize } from '../lib/sentence';
@@ -9,18 +5,14 @@ import { ActivityList } from './ActivityList';
 import { ConnectionLedger } from './ConnectionLedger';
 import { EmptyState } from './EmptyState';
 import { ReviewQueue } from './ReviewQueue';
+import { StatCards } from './StatCards';
 
-/** Overview state plus a retry callback. */
 interface HomePageProps {
   state: OverviewState;
   onRetry: () => void;
 }
 
-/**
- * Home page: one-sentence status, connections, review queue and activity.
- */
 export function HomePage({ state, onRetry }: HomePageProps) {
-  // Each branch below handles one load state before the data exists.
   if (state.status === 'loading') {
     return (
       <div className="page" aria-busy="true">
@@ -78,6 +70,8 @@ export function HomePage({ state, onRetry }: HomePageProps) {
           </a>
         </div>
       </header>
+
+      {hasConnections ? <StatCards overview={overview} /> : null}
 
       {hasConnections ? (
         <ConnectionLedger connections={overview.connections} />

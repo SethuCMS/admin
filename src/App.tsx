@@ -66,6 +66,15 @@ function Frame() {
     }
   });
 
+  // Editors work in Content; Home, connections, people and the audit log are
+  // for admins. The gateway enforces this too; this only avoids a dead page.
+  const role = me?.role;
+  useEffect(() => {
+    if (role && role !== 'admin' && route.name === 'home') {
+      window.location.hash = '#/content';
+    }
+  }, [role, route.name]);
+
   // Real gateway mode requires a session; sample mode is open.
   if (!usingSampleData && !me) {
     return <SignIn />;
