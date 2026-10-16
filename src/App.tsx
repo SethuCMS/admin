@@ -17,6 +17,7 @@ import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
 import { Shell } from './components/Shell';
 import { SignIn } from './components/SignIn';
+import { contentOnly } from './lib/mode';
 import { useRoute, type Route } from './router';
 import { useOverview } from './useOverview';
 
@@ -66,14 +67,20 @@ function Frame() {
     }
   });
 
-  // Editors work in Content; Home, connections, people and the audit log are
-  // for admins. The gateway enforces this too; this only avoids a dead page.
-  const role = me?.role;
+  // Content is edited at /sethu on the website, not in this panel, so a
+  // content address here goes back to Home.
   useEffect(() => {
-    if (role && role !== 'admin' && route.name === 'home') {
+    if (!contentOnly && route.name === 'content') {
+      window.location.hash = '#/';
+    }
+  }, [route.name]);
+
+  // The editor-only build (served at /sethu) shows nothing but Content.
+  useEffect(() => {
+    if (contentOnly && route.name !== 'content') {
       window.location.hash = '#/content';
     }
-  }, [role, route.name]);
+  }, [route.name]);
 
   // Real gateway mode requires a session; sample mode is open.
   if (!usingSampleData && !me) {
@@ -113,6 +120,21 @@ interface PageProps {
  * first.
  */
 function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
+  if (contentOnly && route.name !== 'content') {
+    return null; // the redirect to Content is already under way
+  }
+  if (!contentOnly && route.name === 'content') {
+    return null; // the redirect to Home is already under way
+  }
+  // This panel is for administrators. People who only edit content use /sethu.
+  if (!contentOnly && !usingSampleData && !isAdmin) {
+    return (
+      <ComingNext
+        title="Admin panel"
+        message="This panel is for administrators. To edit content, open /sethu on your website."
+      />
+    );
+  }
   if (route.name === 'home') {
     return <HomePage state={homeState} onRetry={reloadHome} />;
   }

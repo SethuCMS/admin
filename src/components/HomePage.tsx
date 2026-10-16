@@ -53,19 +53,7 @@ export function HomePage({ state, onRetry }: HomePageProps) {
       <header className="hero">
         <h1 className="headline">{headline}</h1>
         <div className="hero-actions">
-          {overview.reviewQueue.length > 0 ? (
-            <a className="button" href="#/content">
-              Review collections
-            </a>
-          ) : null}
-          <a
-            className={
-              overview.reviewQueue.length > 0
-                ? 'button button-outline'
-                : 'button'
-            }
-            href="#/connections"
-          >
+          <a className="button" href="#/connections">
             Add connection
           </a>
         </div>

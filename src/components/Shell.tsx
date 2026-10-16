@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { contentOnly } from '../lib/mode';
 import type { Route } from '../router';
 
 /**
@@ -17,7 +18,6 @@ const NAV: Array<{
   adminOnly?: boolean;
 }> = [
   { name: 'home', href: '#/', label: 'Home', icon: 'M3 11l9-8 9 8M5 10v10h14V10', adminOnly: true },
-  { name: 'content', href: '#/content', label: 'Content', icon: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6' },
   { name: 'connections', href: '#/connections', label: 'Connections', icon: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6', adminOnly: true },
   { name: 'migrate', href: '#/migrate', label: 'Move data', icon: 'M4 8h13l-3-3M20 16H7l3 3', adminOnly: true },
   { name: 'access', href: '#/access', label: 'Roles and access', icon: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 010 6M18 14c1.8.6 3 2.4 3 4.5', adminOnly: true },
@@ -133,6 +133,35 @@ export function Shell({
     day: 'numeric',
     year: 'numeric',
   }).format(new Date());
+
+  // The editor-only view (served at /sethu): no sidebar, no admin pages, just
+  // the content with a slim bar for who is signed in.
+  if (contentOnly) {
+    return (
+      <div className="studio">
+        <a className="skip-link" href="#main">
+          Skip to content
+        </a>
+        <header className="studio-bar">
+          <a className="brand" href="#/content">
+            <Mark />
+            <span>sethucms</span>
+          </a>
+          <span className="studio-user">
+            {userName ? <span className="muted small">{userName}</span> : null}
+            {onSignOut ? (
+              <button type="button" className="link-button" onClick={onSignOut}>
+                Sign out
+              </button>
+            ) : null}
+          </span>
+        </header>
+        <main id="main" className="main studio-main">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={`shell${collapsed ? ' shell-collapsed' : ''}${drawer ? ' shell-drawer' : ''}`}>

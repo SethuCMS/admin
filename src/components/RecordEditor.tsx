@@ -503,6 +503,7 @@ function EditorForm({
             <FieldInput
               key={field.name}
               connectionId={connectionId}
+              canUpload={canEdit && detail.canStoreFiles === true}
               field={field}
               value={valueOf(field.name)}
               onChange={(value) => change(field.name, value)}

@@ -12,6 +12,7 @@ import {
   type RecordData,
 } from '../api';
 import { useGatewayEvents } from '../auth';
+import { contentOnly } from '../lib/mode';
 import { contentHref, type Route } from '../router';
 import { useAsync } from '../useAsync';
 import { RecordEditor, targetFromParam } from './RecordEditor';
@@ -74,7 +75,14 @@ export function ContentPage({ route }: { route: ContentRoute }) {
         {structure.state.status === 'ready' &&
         structure.state.data.length === 0 ? (
           <p className="muted pad-s">
-            No connections yet. <a href="#/connections">Add one</a> to start.
+            {contentOnly ? (
+              'Nothing to edit yet. Ask an admin to connect a database.'
+            ) : (
+              <>
+                No connections yet. <a href="#/connections">Add one</a> to
+                start.
+              </>
+            )}
           </p>
         ) : null}
         {structure.state.status === 'ready'

@@ -1864,3 +1864,78 @@ a {
   background: currentColor;
   opacity: 0.25;
 }
+
+/* A file held in a JSON field: preview, link and the upload button. */
+.file-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.file-preview {
+  max-height: 96px;
+  max-width: 220px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 4px;
+}
+.file-link {
+  color: var(--cobalt);
+  font-weight: 600;
+}
+.file-field .button {
+  cursor: pointer;
+}
+.file-field .button.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.file-field .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.file-field:focus-within .button {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+/* Editor-only view (/sethu): content with a slim top bar, no sidebar. */
+.studio {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.studio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--line, rgba(127, 127, 127, 0.25));
+}
+.studio-bar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
+.studio-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.studio-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}

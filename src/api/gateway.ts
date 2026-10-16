@@ -60,6 +60,19 @@ export interface CollectionDetail {
   fields: FieldInfo[];
   access: { create: boolean; update: boolean; delete: boolean };
   mode: 'read_only' | 'read_write';
+  /** Images and PDFs can be uploaded to this connection (Firestore). */
+  canStoreFiles?: boolean;
+}
+
+/** A file stored in the database, as the gateway describes it. */
+export interface UploadedFile {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  /** Address on the gateway. Public files open for anyone; private ones need a sign-in. */
+  url: string;
+  access: 'public' | 'private';
 }
 
 /** A collection as listed, without per-person access. */
@@ -253,6 +266,14 @@ export interface PersonSetup extends PersonInfo {
   secret: string;
   /** The same key as a link; opens the authenticator app on a phone. */
   otpauthUri: string;
+}
+
+/** An e-mail address invited to sign in with Google or GitHub. */
+export interface InviteInfo {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: string;
 }
 
 /** One audit-log entry. */
@@ -738,6 +759,88 @@ export const gateway = {
       `/v1/admin/connections/${enc(id)}/collections/${enc(collection)}`,
       { body: { exposed } },
     ).then((r) => r.data),
+  /** Store an image or PDF in the connected database. The file itself is the request body. */
+  uploadFile: async (
+    connectionId: string,
+    file: File,
+    access: 'public' | 'private' = 'public',
+    signal?: AbortSignal,
+  ): Promise<UploadedFile> => {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Content-Type': file.type,
+      'X-File-Name': encodeURIComponent(file.name),
+      'X-File-Access': access,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/v1/connections/${enc(connectionId)}/files`, {
+        method: 'POST',
+        headers,
+        body: file,
+        ...(signal ? { signal } : {}),
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+      throw new GatewayError(
+        'The gateway could not be reached. Check that it is running and try again.',
+        0,
+        'NETWORK',
+      );
+    }
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = undefined;
+    }
+    if (!response.ok) {
+      const error = (payload as { error?: { code?: string; message?: string } } | undefined)?.error;
+      if (response.status === 401 && token) {
+        setToken(null);
+        onSignedOut?.();
+      }
+      throw new GatewayError(
+        error?.message ?? `The gateway answered with status ${response.status}.`,
+        response.status,
+        error?.code ?? 'UNKNOWN',
+      );
+    }
+    const data = (payload as { data: Omit<UploadedFile, 'url'> & { path: string } }).data;
+    return {
+      id: data.id,
+      name: data.name,
+      contentType: data.contentType,
+      size: data.size,
+      url: absoluteUrl(data.path),
+      access: data.access === 'private' ? 'private' : 'public',
+    };
+  },
+  /**
+   * Download a stored file with the signed-in token (for private files, which
+   * a plain link cannot open). Only addresses on this gateway are fetched, so
+   * the token is never sent anywhere else.
+   */
+  fetchFile: async (url: string, signal?: AbortSignal): Promise<Blob> => {
+    const target = new URL(url, window.location.href);
+    const home = new URL(baseUrl || '/', window.location.href);
+    if (target.origin !== home.origin || !target.pathname.startsWith('/v1/files/')) {
+      throw new GatewayError('That file is not on this gateway.', 0, 'FOREIGN_FILE');
+    }
+    const response = await fetch(target.toString(), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      ...(signal ? { signal } : {}),
+    });
+    if (!response.ok) {
+      throw new GatewayError('The file could not be opened.', response.status, 'FILE');
+    }
+    return response.blob();
+  },
   /** Declare a new, empty collection (Firestore). It is switched on unless `expose` is false. */
   createCollection: (
     id: string,
@@ -790,6 +893,16 @@ export const gateway = {
     }),
   removePerson: (id: string) =>
     request<void>('DELETE', `/v1/admin/people/${enc(id)}`),
+  invites: () =>
+    request<{ data: InviteInfo[] }>('GET', '/v1/admin/invites').then(
+      (r) => r.data,
+    ),
+  createInvite: (body: { email: string; role: Role }) =>
+    request<{ data: InviteInfo }>('POST', '/v1/admin/invites', { body }).then(
+      (r) => r.data,
+    ),
+  removeInvite: (id: string) =>
+    request<void>('DELETE', `/v1/admin/invites/${enc(id)}`),
   audit: (limit = 100, signal?: AbortSignal) =>
     request<{ data: AuditItem[] }>('GET', `/v1/admin/audit?limit=${limit}`, {
       signal,

@@ -36,6 +36,34 @@ const ROLES: Array<{ role: Role; label: string; summary: string }> = [
 export function AccessPage() {
   const { state, reload } = useAsync(() => gateway.tokens(), 'tokens');
   const people = useAsync(() => gateway.people(), 'people');
+  const invites = useAsync(() => gateway.invites(), 'invites');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<Role>('editor');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const addInvite = async (event: FormEvent) => {
+    event.preventDefault();
+    setInviteError(null);
+    try {
+      await gateway.createInvite({ email: inviteEmail, role: inviteRole });
+      setInviteEmail('');
+    } catch (cause) {
+      setInviteError(
+        cause instanceof Error ? cause.message : 'The invitation could not be added.',
+      );
+    }
+    invites.reload();
+  };
+  const removeInvite = async (id: string) => {
+    setInviteError(null);
+    try {
+      await gateway.removeInvite(id);
+    } catch (cause) {
+      setInviteError(
+        cause instanceof Error ? cause.message : 'The invitation could not be removed.',
+      );
+    }
+    invites.reload();
+  };
   const [username, setUsername] = useState('');
   const [personRole, setPersonRole] = useState<Role>('editor');
   const [setup, setSetup] = useState<PersonSetup | null>(null);
@@ -156,8 +184,9 @@ export function AccessPage() {
     <div className="page">
       <h1 className="page-title">Roles and access</h1>
       <p className="muted section-lede">
-        People sign in with a code from an authenticator app. Apps and websites
-        use API tokens. Each person and each token has one role.
+        People sign in with Google or GitHub (by invitation) or with a code from
+        an authenticator app. Apps and websites use API tokens. Each person and
+        each token has one role.
       </p>
 
       <ul className="rows roles">
@@ -171,8 +200,90 @@ export function AccessPage() {
         ))}
       </ul>
 
+      <section className="section" aria-labelledby="invites-heading">
+        <h2 id="invites-heading">Invite by e-mail</h2>
+        <p className="muted small">
+          Invite someone with their Google or GitHub e-mail address. They sign in
+          with that account and get the role you choose. The address must be
+          verified by Google or GitHub. Removing an invitation signs that person
+          out.
+        </p>
+
+        <form className="inline-form" onSubmit={addInvite}>
+          <label className="field grow">
+            <span className="field-label">E-mail address</span>
+            <input
+              className="input"
+              type="email"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              maxLength={200}
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              placeholder="asha@example.com"
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">Role</span>
+            <select
+              className="input"
+              value={inviteRole}
+              onChange={(event) => setInviteRole(event.target.value as Role)}
+            >
+              {ROLES.map((item) => (
+                <option key={item.role} value={item.role}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="button" type="submit">
+            Invite
+          </button>
+        </form>
+        {inviteError ? (
+          <p className="form-error" role="alert">
+            {inviteError}
+          </p>
+        ) : null}
+
+        {invites.state.status === 'ready' ? (
+          invites.state.data.length === 0 ? (
+            <p className="muted">No invitations yet.</p>
+          ) : (
+            <ul className="rows">
+              {invites.state.data.map((invite) => (
+                <li className="row" key={invite.id}>
+                  <div className="row-main">
+                    <span>{invite.email}</span>
+                    <span className="muted small">
+                      {ROLES.find((item) => item.role === invite.role)?.label} ·
+                      invited {timeAgo(invite.createdAt)}
+                    </span>
+                  </div>
+                  <button
+                    className="button button-small button-danger-quiet"
+                    type="button"
+                    onClick={() => removeInvite(invite.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : invites.state.status === 'error' ? (
+          <p className="form-error" role="alert">
+            {invites.state.message}
+          </p>
+        ) : (
+          <p className="muted">Loading…</p>
+        )}
+      </section>
+
       <section className="section" aria-labelledby="people-heading">
-        <h2 id="people-heading">People</h2>
+        <h2 id="people-heading">Authenticator-app accounts</h2>
         <p className="muted small">
           Add a person, then give them the setup key. In Google Authenticator
           choose <em>Add a code</em>, then <em>Enter a setup key</em>. Their first

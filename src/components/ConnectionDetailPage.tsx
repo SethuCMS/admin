@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react';
 import { gateway, type ConnectionDetail } from '../api';
 import { capabilityCells } from '../lib/capabilities';
 import { timeAgo } from '../lib/time';
-import { contentHref, navigate } from '../router';
+import { navigate } from '../router';
 import { useAsync } from '../useAsync';
 
 /**
@@ -271,14 +271,6 @@ export function ConnectionDetailPage({
                   </span>
                 </div>
                 <div className="row-actions">
-                  {collection.exposed ? (
-                    <a
-                      className="button button-small button-quiet"
-                      href={contentHref(connection.id, collection.name)}
-                    >
-                      Open in content
-                    </a>
-                  ) : null}
                   <label className="switch">
                     <input
                       type="checkbox"
