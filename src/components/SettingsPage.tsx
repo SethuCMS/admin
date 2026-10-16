@@ -1,5 +1,6 @@
 import { absoluteUrl, askForGateway, forgetGateway, usingSampleData } from '../api';
 import { useAuth } from '../auth';
+import { SchemaPanel } from './SchemaPanel';
 
 export function SettingsPage() {
   const { me, signOut } = useAuth();
@@ -24,6 +25,7 @@ export function SettingsPage() {
           </div>
         ) : null}
       </dl>
+      {me?.role === 'admin' && !usingSampleData ? <SchemaPanel /> : null}
       {askForGateway ? (
         <p>
           <button className="button button-outline" type="button" onClick={forgetGateway}>

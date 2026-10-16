@@ -3,6 +3,8 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { setHeaderSearch, useHeaderSearch } from '../lib/headerSearch';
+import { toggleSidebar, useSidebarOpen } from '../lib/sidebar';
 import { contentOnly } from '../lib/mode';
 import type { Route } from '../router';
 
@@ -134,20 +136,40 @@ export function Shell({
     year: 'numeric',
   }).format(new Date());
 
-  // The editor-only view (served at /sethu): no sidebar, no admin pages, just
-  // the content with a slim bar for who is signed in.
+  const sideOpen = useSidebarOpen();
+
+  // The editor-only view (served at /sethu): no admin pages, just the content
+  // with a slim bar for who is signed in.
   if (contentOnly) {
     return (
-      <div className="studio">
+      <div className="cms-shell">
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <header className="studio-bar">
-          <a className="brand" href="#/content">
-            <Mark />
-            <span>sethucms</span>
-          </a>
-          <span className="studio-user">
+        <header className="cms-bar">
+          <div className="cms-bar-left">
+            <button
+              type="button"
+              className="cms-toggle"
+              aria-controls="cms-side"
+              aria-expanded={sideOpen}
+              aria-label={sideOpen ? 'Hide the sidebar' : 'Show the sidebar'}
+              title={sideOpen ? 'Hide the sidebar' : 'Show the sidebar'}
+              onClick={toggleSidebar}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+                <path d="M7.5 3.5v13" />
+                {sideOpen ? <path d="M13 8.5 11 10l2 1.5" /> : <path d="M11 8.5 13 10l-2 1.5" />}
+              </svg>
+            </button>
+            <a className="brand" href="#/content">
+              <Mark />
+              <span>sethucms</span>
+            </a>
+          </div>
+          <HeaderSearch />
+          <span className="cms-user">
             {userName ? <span className="muted small">{userName}</span> : null}
             {onSignOut ? (
               <button type="button" className="link-button" onClick={onSignOut}>
@@ -156,7 +178,7 @@ export function Shell({
             ) : null}
           </span>
         </header>
-        <main id="main" className="main studio-main">
+        <main id="main" className="main cms-main">
           {children}
         </main>
       </div>
@@ -257,6 +279,26 @@ export function Shell({
           {children}
         </main>
       </div>
+    </div>
+  );
+}
+
+/** The search box in the top bar; it appears while a collection is open. */
+function HeaderSearch() {
+  const { placeholder, value } = useHeaderSearch();
+  if (placeholder === null) {
+    return <div className="cms-search-gap" />;
+  }
+  return (
+    <div className="cms-search">
+      <input
+        className="input"
+        type="search"
+        placeholder={placeholder}
+        aria-label={placeholder}
+        value={value}
+        onChange={(event) => setHeaderSearch({ value: event.target.value })}
+      />
     </div>
   );
 }

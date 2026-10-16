@@ -1,0 +1,346 @@
+/* ---------- Cards ---------- */
+.ledger {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 0 24px 6px;
+}
+.ledger-head {
+  padding-top: 16px;
+}
+.two-up {
+  gap: 20px;
+}
+.two-up > .section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 22px 24px;
+  margin-bottom: 20px;
+}
+.two-up .list {
+  border-top: 0;
+}
+.panel,
+.row,
+.input {
+  border-radius: var(--radius);
+}
+.mode-read_write {
+  border-color: var(--coral);
+  color: var(--coral-ink);
+}
+
+/* ---------- Home: stats and chart ---------- */
+.hero {
+  margin-bottom: 28px;
+}
+.stats {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  margin-bottom: 28px;
+}
+.stat-row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.stat {
+  display: grid;
+  gap: 18px;
+  align-content: space-between;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.stat-lead {
+  background: #17231e;
+  border-color: #17231e;
+  color: #fff;
+}
+.stat-label {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+.stat-lead .stat-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+.stat-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+.stat-value {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+.stat-detail {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--coral-ink);
+  text-align: right;
+}
+.stat-lead .stat-detail {
+  color: var(--lime);
+}
+
+.chart {
+  margin: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  display: grid;
+  gap: 16px;
+  grid-template-rows: auto 1fr;
+}
+.chart figcaption {
+  display: grid;
+  gap: 2px;
+}
+.bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 140px;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.bar {
+  display: block;
+  width: 100%;
+  max-width: 40px;
+  border-radius: 10px 10px 4px 4px;
+  background: var(--lime);
+}
+.bar-today {
+  background: var(--coral);
+}
+.bar-label {
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar {
+    transform-origin: bottom;
+    animation: bar-grow 480ms ease-out both;
+  }
+  @keyframes bar-grow {
+    from {
+      transform: scaleY(0.2);
+      opacity: 0;
+    }
+  }
+}
+
+/* ---------- Sign in ---------- */
+.signin {
+  background: var(--harbor);
+}
+.signin-card {
+  background: var(--paper);
+  border-radius: 28px;
+  padding: 36px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+.signin-card h1 {
+  letter-spacing: -0.05em;
+  font-weight: 700;
+}
+
+/* ---------- Narrow screens: the sidebar becomes a drawer ---------- */
+@media (max-width: 1080px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 820px) {
+  .shell,
+  .shell-collapsed {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(290px, 86vw);
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 14px 18px;
+  }
+  .shell-drawer .sidebar {
+    transform: translateX(0);
+  }
+  .sidebar-collapse {
+    display: none;
+  }
+  .sidebar-close,
+  .menu-button {
+    display: inline-grid;
+  }
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    background: rgba(23, 35, 30, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+  .shell-drawer .scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .nav-link {
+    border-bottom: 0;
+  }
+  .nav-link[aria-current='page'] {
+    border-bottom: 0;
+    background: var(--lime);
+  }
+  .sidebar-foot {
+    display: grid;
+  }
+  .stat-row {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .scrim,
+  .shell {
+    transition: none;
+  }
+}
+
+/* ---------- Authenticator setup: QR code and key ---------- */
+.setup-key {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+.qr {
+  width: 148px;
+  height: 148px;
+  padding: 8px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.setup-key-text {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.setup-key-text .token-value {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .setup-key {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+}
+
+/* Social sign-in buttons (Google, GitHub) */
+.social-buttons {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.social-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  text-decoration: none;
+}
+
+/* "or" divider between social sign-in and the authenticator form */
+.signin-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 6px;
+  color: var(--muted, #6b7a72);
+  font-size: 0.85rem;
+}
+.signin-or::before,
+.signin-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+/* A file held in a JSON field: preview, link and the upload button. */
+.file-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.file-preview {
+  max-height: 96px;
+  max-width: 220px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 4px;
+}
+.file-link {
+  color: var(--cobalt);
+  font-weight: 600;
+}
+.file-field .button {
+  cursor: pointer;
+}
+.file-field .button.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.file-field .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.file-field:focus-within .button {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}

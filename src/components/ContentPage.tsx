@@ -12,7 +12,9 @@ import {
   type RecordData,
 } from '../api';
 import { useGatewayEvents } from '../auth';
+import { setHeaderSearch, useHeaderSearch } from '../lib/headerSearch';
 import { contentOnly } from '../lib/mode';
+import { useSidebarOpen } from '../lib/sidebar';
 import { contentHref, type Route } from '../router';
 import { useAsync } from '../useAsync';
 import { RecordEditor, targetFromParam } from './RecordEditor';
@@ -52,6 +54,7 @@ export function ContentPage({ route }: { route: ContentRoute }) {
     }
   });
 
+  const sideOpen = useSidebarOpen();
   const depth = route.recordId
     ? 'record'
     : route.collection
@@ -59,9 +62,9 @@ export function ContentPage({ route }: { route: ContentRoute }) {
       : 'none';
 
   return (
-    <div className="studio" data-depth={depth}>
-      <nav className="pane pane-structure" aria-label="Content structure">
-        <h1 className="pane-title">Content</h1>
+    <div className="cms" data-depth={depth} data-side={sideOpen ? 'open' : 'closed'}>
+      <nav id="cms-side" className="cms-side" aria-label="Content structure" hidden={!sideOpen}>
+        <h1 className="cms-side-title">Content</h1>
         {structure.state.status === 'loading' ? (
           <p className="muted pad-s" aria-busy="true">
             Loading…
@@ -105,8 +108,8 @@ export function ContentPage({ route }: { route: ContentRoute }) {
           recordParam={route.recordId}
         />
       ) : (
-        <section className="pane pane-list pane-empty">
-          <p className="muted pad">Choose a collection to see its records.</p>
+        <section className="cms-area cms-area-empty">
+          <p className="muted">Choose a collection on the left to see its records.</p>
         </section>
       )}
     </div>
@@ -181,47 +184,123 @@ function CollectionArea({
 
   if (detail.state.status === 'loading') {
     return (
-      <section className="pane pane-list" aria-busy="true">
-        <p className="muted pad">Loading…</p>
+      <section className="cms-area cms-area-empty" aria-busy="true">
+        <p className="muted">Loading…</p>
       </section>
     );
   }
   if (detail.state.status === 'error') {
     return (
-      <section className="pane pane-list">
-        <p className="form-error pad" role="alert">
+      <section className="cms-area cms-area-empty">
+        <p className="form-error" role="alert">
           {detail.state.message}
         </p>
       </section>
     );
   }
   const collection = detail.state.data;
+  return (
+    <CollectionView
+      connectionId={connectionId}
+      collectionName={collectionName}
+      collection={collection}
+      recordParam={recordParam}
+    />
+  );
+}
+
+/**
+ * The right-hand side: a bar with the collection name and actions, then the
+ * record list and the editor. The search box is in the top bar.
+ */
+function CollectionView({
+  connectionId,
+  collectionName,
+  collection,
+  recordParam,
+}: {
+  connectionId: string;
+  collectionName: string;
+  collection: CollectionDetail;
+  recordParam?: string | undefined;
+}) {
+  const titleField = titleFieldOf(collection);
+  const [newestFirst, setNewestFirst] = useState(true);
+  // The search box is in the top bar; this collection says what it is for.
+  const { value: search } = useHeaderSearch();
+  const [query, setQuery] = useState('');
+  const titleName = titleField?.name;
+  useEffect(() => {
+    setHeaderSearch({
+      placeholder: titleName ? `Search ${collection.name} by ${titleName}` : null,
+      value: '',
+    });
+    return () => setHeaderSearch({ placeholder: null, value: '' });
+  }, [collection.name, titleName]);
+
+  useEffect(() => {
+    // Debounce typing so each keystroke does not hit the gateway.
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   return (
-    <>
-      <RecordList
-        connectionId={connectionId}
-        detail={collection}
-        selected={recordParam}
-      />
-      {recordParam ? (
-        <section className="pane pane-editor">
-          <RecordEditor
-            connectionId={connectionId}
-            collectionName={collectionName}
-            detail={collection}
-            target={targetFromParam(recordParam)}
-          />
-        </section>
-      ) : (
-        <section className="pane pane-editor pane-empty">
-          <p className="muted pad">
-            Choose a record to edit it
-            {collection.access.create ? ', or create a new one' : ''}.
-          </p>
-        </section>
-      )}
-    </>
+    <section className="cms-area" aria-label={`${collection.name} content`}>
+      <header className="cms-toolbar">
+        <div className="cms-toolbar-title">
+          <a className="back-link" href="#/content">
+            All content
+          </a>
+          <h2>{collection.ui?.title ?? collection.name}</h2>
+        </div>
+        <div className="cms-toolbar-actions">
+          <button
+            className="button button-small button-quiet"
+            type="button"
+            onClick={() => setNewestFirst((value) => !value)}
+            aria-label={`Order: ${newestFirst ? 'newest first' : 'oldest first'}. Change order`}
+          >
+            {newestFirst ? 'Newest first' : 'Oldest first'}
+          </button>
+          {collection.access.create ? (
+            <a
+              className="button button-small"
+              // "~" prefixes mark drafts in the URL; "~new" starts a blank one.
+              href={contentHref(connectionId, collection.name, '~new')}
+            >
+              New
+            </a>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="cms-work" data-open={recordParam ? 'record' : 'list'}>
+        <RecordList
+          connectionId={connectionId}
+          detail={collection}
+          selected={recordParam}
+          query={query}
+          newestFirst={newestFirst}
+        />
+        {recordParam ? (
+          <section className="cms-editor">
+            <RecordEditor
+              connectionId={connectionId}
+              collectionName={collectionName}
+              detail={collection}
+              target={targetFromParam(recordParam)}
+            />
+          </section>
+        ) : (
+          <section className="cms-editor cms-editor-empty">
+            <p className="muted">
+              Choose a record to edit it
+              {collection.access.create ? ', or create a new one' : ''}.
+            </p>
+          </section>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -233,7 +312,11 @@ const PAGE_SIZE = 25;
  * field that is not the key.
  */
 function titleFieldOf(detail: CollectionDetail) {
-  return detail.fields.find(
+  const coded = detail.ui?.titleField;
+  const chosen = coded
+    ? detail.fields.find((field) => field.name === coded && !field.masked)
+    : undefined;
+  return chosen ?? detail.fields.find(
     (field) =>
       !field.primaryKey &&
       !field.masked &&
@@ -249,17 +332,18 @@ function RecordList({
   connectionId,
   detail,
   selected,
+  query,
+  newestFirst,
 }: {
   connectionId: string;
   detail: CollectionDetail;
   selected?: string | undefined;
+  query: string;
+  newestFirst: boolean;
 }) {
   // Sort and identify records by the primary key; fall back to "id".
   const key = detail.fields.find((field) => field.primaryKey)?.name ?? 'id';
   const titleField = titleFieldOf(detail);
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
-  const [newestFirst, setNewestFirst] = useState(true);
   const [items, setItems] = useState<RecordData[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<DraftInfo[]>([]);
@@ -269,12 +353,6 @@ function RecordList({
   const [message, setMessage] = useState('');
   // Counter that lets a slow, outdated response be recognised and ignored.
   const generation = useRef(0);
-
-  useEffect(() => {
-    // Debounce typing so each keystroke does not hit the gateway.
-    const timer = setTimeout(() => setQuery(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
 
   const load = useCallback(
     async (from: string | null) => {
@@ -357,46 +435,7 @@ function RecordList({
   const newDrafts = drafts.filter((draft) => draft.recordId === null);
 
   return (
-    <section className="pane pane-list" aria-label={`${detail.name} records`}>
-      <header className="pane-head">
-        <div>
-          <a className="back-link" href="#/content">
-            All content
-          </a>
-          <h2>{detail.name}</h2>
-        </div>
-        {detail.access.create ? (
-          <a
-            className="button button-small"
-            // "~" prefixes mark drafts in the URL; "~new" starts a blank one.
-            href={contentHref(connectionId, detail.name, '~new')}
-          >
-            New
-          </a>
-        ) : null}
-      </header>
-
-      <div className="list-tools">
-        {titleField ? (
-          <input
-            className="input"
-            type="search"
-            placeholder={`Search ${titleField.name}`}
-            aria-label={`Search by ${titleField.name}`}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        ) : null}
-        <button
-          className="button button-small button-quiet"
-          type="button"
-          onClick={() => setNewestFirst((value) => !value)}
-          aria-label={`Sorted by ${key}, ${newestFirst ? 'newest first' : 'oldest first'}. Change order`}
-        >
-          {newestFirst ? 'Newest first' : 'Oldest first'}
-        </button>
-      </div>
-
+    <section className="cms-list" aria-label={`${detail.name} records`}>
       {status === 'loading' ? (
         <p className="muted pad" aria-busy="true">
           Loading…

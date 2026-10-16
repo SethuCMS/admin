@@ -4,7 +4,7 @@
  */
 
 import { useState, type FormEvent } from 'react';
-import { gateway, type PersonSetup, type Role } from '../api';
+import { gateway, inviteLink, type PersonSetup, type Role } from '../api';
 import { timeAgo } from '../lib/time';
 import { useAsync } from '../useAsync';
 import { SetupKey } from './SetupKey';
@@ -208,6 +208,12 @@ export function AccessPage() {
           verified by Google or GitHub. Removing an invitation signs that person
           out.
         </p>
+        {inviteLink() ? (
+          <p className="muted small">
+            Send invited people this link to open your workspace:{' '}
+            <code className="wrap">{inviteLink()}</code>
+          </p>
+        ) : null}
 
         <form className="inline-form" onSubmit={addInvite}>
           <label className="field grow">

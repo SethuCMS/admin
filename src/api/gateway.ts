@@ -7,506 +7,72 @@
  * message is always safe to show to a person.
  */
 
-// ---- Types ---------------------------------------------------------------
+import type {
+  CollectionDetail,
+  CollectionSummary,
+  ConnectionDetail,
+  ConnectionListItem,
+  DraftInfo,
+  GatewayEvent,
+  InviteInfo,
+  Me,
+  MigrationJob,
+  MigrationOptions,
+  MigrationPlan,
+  PersonInfo,
+  PersonSetup,
+  PreviewLink,
+  RecordData,
+  RecordPage,
+  Role,
+  SchemaReport,
+  TokenInfo,
+  UploadedFile,
+  AuditItem,
+  FieldInfo,
+  SocialConfig,
+} from './wire';
+import {
+  GatewayError,
+  WORKSPACE_ID,
+  absoluteUrl,
+  baseUrl,
+  collectionPath,
+  enc,
+  enterWorkspace,
+  idempotency,
+  onSignedOut,
+  request,
+  setToken,
+  token,
+} from './client';
 
-/** Permission level; the gateway enforces it, the UI only hides actions. */
-export type Role = 'admin' | 'editor' | 'viewer';
-
-/** The signed-in person. */
-export interface Me {
-  id: string;
-  name: string;
-  role: Role;
-}
-
-/** One field of a collection, including what this person may see or edit. */
-export interface FieldInfo {
-  name: string;
-  type:
-    | 'string'
-    | 'text'
-    | 'integer'
-    | 'decimal'
-    | 'boolean'
-    | 'datetime'
-    | 'date'
-    | 'json'
-    | 'array'
-    | 'reference'
-    | 'binary'
-    | 'geopoint';
-  required?: boolean;
-  primaryKey?: boolean;
-  generated?: boolean;
-  readOnly?: boolean;
-  references?: string;
-  validation?: {
-    min?: number;
-    max?: number;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: string;
-    enum?: Array<string | number>;
-  };
-  /** The value is hidden from this person (shown as asterisks). */
-  masked: boolean;
-  /** This person may change the field. */
-  editable: boolean;
-}
-
-/** A collection with its fields and what this person may do. */
-export interface CollectionDetail {
-  name: string;
-  fields: FieldInfo[];
-  access: { create: boolean; update: boolean; delete: boolean };
-  mode: 'read_only' | 'read_write';
-  /** Images and PDFs can be uploaded to this connection (Firestore). */
-  canStoreFiles?: boolean;
-}
-
-/** A file stored in the database, as the gateway describes it. */
-export interface UploadedFile {
-  id: string;
-  name: string;
-  contentType: string;
-  size: number;
-  /** Address on the gateway. Public files open for anyone; private ones need a sign-in. */
-  url: string;
-  access: 'public' | 'private';
-}
-
-/** A collection as listed, without per-person access. */
-export interface CollectionSummary {
-  name: string;
-  displayName: string;
-  fields: Array<{
-    name: string;
-    type: string;
-    required: boolean;
-    primaryKey: boolean;
-  }>;
-}
-
-/** A connection as listed for content editors. */
-export interface ConnectionListItem {
-  id: string;
-  name: string;
-  adapterType: string;
-  mode: 'read_only' | 'read_write';
-  status: string;
-}
-
-// ---- Migration -----------------------------------------------------------
-
-/** What to move and how to handle conflicts. */
-export interface MigrationOptions {
-  source: string;
-  target: string;
-  onConflict?: 'skip' | 'overwrite' | 'fail';
-  preserveIds?: boolean;
-  createMissing?: boolean;
-  dropUnmappedFields?: boolean;
-  collections?: Array<
-    string | { from: string; to?: string; fields?: Record<string, string> }
-  >;
-}
-
-/** Dry-run result for one collection. */
-export interface MigrationCollectionPlan {
-  from: string;
-  to: string;
-  idsPreserved: boolean;
-  /** The target collection does not exist and will be created. */
-  create: boolean;
-  leftBehind: string[];
-  problems: string[];
-  warnings: string[];
-  sourceRecords: { count: number; exact: boolean } | null;
-  targetRecords: { count: number; exact: boolean } | null;
-}
-
-/** Dry-run result; `ready` is false when blocking problems exist. */
-export interface MigrationPlan {
-  source: { id: string; name: string; adapter: string };
-  target: { id: string; name: string; adapter: string };
-  collections: MigrationCollectionPlan[];
-  problems: string[];
-  warnings: string[];
-  ready: boolean;
-}
-
-/** Live counters for one collection during a migration. */
-export interface MigrationProgress {
-  from: string;
-  to: string;
-  state: 'waiting' | 'running' | 'done' | 'failed' | 'skipped';
-  total: number | null;
-  read: number;
-  created: number;
-  updated: number;
-  skipped: number;
-  failed: number;
-  differences: number;
-  verified: boolean | null;
-  note?: string;
-}
-
-/** A migration run and its overall outcome. */
-export interface MigrationJob {
-  id: string;
-  status:
-    'running' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled';
-  source: string;
-  target: string;
-  startedAt: string;
-  finishedAt?: string;
-  collections: MigrationProgress[];
-  errors: Array<{
-    collection: string;
-    id: string;
-    code: string;
-    message: string;
-  }>;
-  errorsTruncated: boolean;
-  message?: string;
-}
-
-/** A record's values by field name. */
-export type RecordData = Record<string, unknown>;
-
-/** One page of records; use `nextCursor` to continue. */
-export interface RecordPage {
-  data: RecordData[];
-  page: { nextCursor: string | null; limit: number };
-  meta?: { capabilityNotes?: string[] };
-}
-
-/**
- * An unpublished edit. `version` is for optimistic locking: saves and publishes
- * are rejected if someone else changed the draft meanwhile.
- */
-export interface DraftInfo {
-  id: string;
-  connectionId: string;
-  collection: string;
-  recordId: string | null;
-  values: RecordData;
-  version: number;
-  status: 'draft' | 'publishing' | 'published' | 'discarded';
-  createdBy: string;
-  updatedBy: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedRecordId?: string;
-}
-
-/** A short-lived link to view a draft without signing in. */
-export interface PreviewLink {
-  token: string;
-  path: string;
-  expiresAt: string;
-}
-
-/** Full admin view of a connection. Secrets are never included. */
-export interface ConnectionDetail {
-  id: string;
-  name: string;
-  adapter: string;
-  adapterLabel: string;
-  mode: 'read_only' | 'read_write';
-  config: Record<string, unknown>;
-  hasCredentials: boolean;
-  health: string;
-  healthNote?: string;
-  lastCheckedAt: string;
-  /** True when this connection lets an admin declare a new, empty collection. */
-  canCreateCollections?: boolean;
-  capabilities: {
-    joins: boolean;
-    transactions: string;
-    filterOr: boolean;
-    inequality: string;
-    fullText: boolean;
-    realtime: boolean;
-    writes: boolean;
-  };
-  collections: Array<{
-    name: string;
-    exposed: boolean;
-    reviewed: boolean;
-    fields: number;
-    primaryKey: string | null;
-  }>;
-}
-
-/** An API token's metadata; the secret is shown only on creation. */
-export interface TokenInfo {
-  id: string;
-  name: string;
-  role: Role;
-  createdAt: string;
-  revokedAt?: string;
-  expiresAt?: string;
-}
-
-/** A person who signs in with an authenticator app. */
-export interface PersonInfo {
-  id: string;
-  username: string;
-  name: string;
-  role: Role;
-  /** False until their first correct code. */
-  enabled: boolean;
-  createdAt: string;
-}
-
-/** What the gateway returns when a person is added or reset: shown once. */
-export interface PersonSetup extends PersonInfo {
-  /** The setup key to type into the authenticator app. */
-  secret: string;
-  /** The same key as a link; opens the authenticator app on a phone. */
-  otpauthUri: string;
-}
-
-/** An e-mail address invited to sign in with Google or GitHub. */
-export interface InviteInfo {
-  id: string;
-  email: string;
-  role: Role;
-  createdAt: string;
-}
-
-/** One audit-log entry. */
-export interface AuditItem {
-  id: string;
-  at: string;
-  actor: string;
-  operation: string;
-  target: string;
-  detail?: unknown;
-}
-
-/** Live changes pushed over the event stream. */
-export type GatewayEvent =
-  | {
-      type: 'record.created' | 'record.updated' | 'record.deleted';
-      connectionId: string;
-      collection: string;
-      recordId: string;
-    }
-  | {
-      type:
-        | 'draft.created'
-        | 'draft.updated'
-        | 'draft.discarded'
-        | 'draft.published';
-      connectionId: string;
-      collection: string;
-      draftId: string;
-      recordId: string | null;
-      version: number;
-    }
-  | { type: 'connection.changed'; connectionId: string };
-
-// ---- Errors --------------------------------------------------------------
-
-/**
- * Error from the gateway. `message` is safe to show to people; `code` is for
- * logic.
- */
-export class GatewayError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code: string,
-    readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = 'GatewayError';
-  }
-}
-
-// ---- Client --------------------------------------------------------------
-
-// sessionStorage (not localStorage): survives reloads but ends with the tab.
-const TOKEN_KEY = 'sethucms.token';
-
-let baseUrl = '';
-let token: string | null = null;
-let onSignedOut: (() => void) | null = null;
-
-/**
- * Set the gateway address and restore any saved token. Must run before the
- * first request.
- */
-export function configureGateway(url: string): void {
-  baseUrl = url.replace(/\/$/, '');
-  try {
-    token = window.sessionStorage.getItem(TOKEN_KEY);
-  } catch {
-    token = null; // storage can be blocked; the person just signs in again
-  }
-  // Run after restoring so a fresh SSO token replaces a stale one.
-  takeSsoResult();
-}
-
-/**
- * Why the last single sign-on attempt failed, for the sign-in page to show. Set
- * at most once per page load.
- */
-export let ssoError: 'denied' | 'failed' | 'expired' | null = null;
-
-/**
- * After single sign-on the gateway sends the browser back with the result in
- * the URL fragment (#sso_token=... or #sso_error=...). Fragments are never sent
- * to a server. Take the result and clear the address bar straight away so the
- * token is not left in history or on screen.
- */
-function takeSsoResult(): void {
-  if (typeof window === 'undefined' || !window.location.hash.includes('sso_')) {
-    return;
-  }
-  const params = new URLSearchParams(window.location.hash.slice(1));
-  const sessionToken = params.get('sso_token');
-  const error = params.get('sso_error');
-  if (sessionToken) {
-    setToken(sessionToken);
-  } else if (error === 'denied' || error === 'failed' || error === 'expired') {
-    ssoError = error;
-  }
-  try {
-    window.history.replaceState(
-      null,
-      '',
-      window.location.pathname + window.location.search,
-    );
-  } catch {
-    // Not fatal.
-  }
-}
-
-/** Remember the token for requests and reloads; null signs out. */
-export function setToken(value: string | null): void {
-  token = value;
-  try {
-    if (value) {
-      window.sessionStorage.setItem(TOKEN_KEY, value);
-    } else {
-      window.sessionStorage.removeItem(TOKEN_KEY);
-    }
-  } catch {
-    // Not fatal.
-  }
-}
-
-/** True when a token is held (it may still be rejected). */
-export const hasToken = (): boolean => token !== null;
-/** Register what to do when the gateway rejects the token (401). */
-export const onSessionEnded = (callback: (() => void) | null): void => {
-  onSignedOut = callback;
-};
-/** Full URL for a gateway path, e.g. for links shown to people. */
-export const absoluteUrl = (path: string): string =>
-  new URL(baseUrl + path, window.location.href).toString();
-
-/** Optional request parts. */
-interface RequestOptions {
-  body?: unknown;
-  signal?: AbortSignal | undefined;
-  headers?: Record<string, string>;
-}
-
-/**
- * Single choke point for gateway calls: adds auth, converts every failure to
- * GatewayError and signs out on 401.
- */
-async function request<T>(
-  method: string,
-  path: string,
-  options: RequestOptions = {},
-): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    ...(options.headers ?? {}),
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  let response: Response;
-  try {
-    const init: RequestInit = { method, headers };
-    if (options.body !== undefined) {
-      init.body = JSON.stringify(options.body);
-    }
-    if (options.signal) {
-      init.signal = options.signal;
-    }
-    response = await fetch(baseUrl + path, init);
-  } catch (error) {
-    // Let cancellation through unchanged so callers can tell it from a real
-    // network failure.
-    if (options.signal?.aborted) {
-      throw error;
-    }
-    throw new GatewayError(
-      'The gateway could not be reached. Check that it is running and try again.',
-      0,
-      'NETWORK',
-    );
-  }
-
-  // No content (deletes): nothing to parse.
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    // Non-JSON error bodies (proxies, crashes) fall back to a generic message
-    // below.
-    payload = undefined;
-  }
-
-  if (!response.ok) {
-    const error = (
-      payload as
-        | { error?: { code?: string; message?: string; details?: unknown } }
-        | undefined
-    )?.error;
-    // Only react if we had a token; a 401 while signing in is just a bad token.
-    if (response.status === 401 && token) {
-      setToken(null);
-      onSignedOut?.();
-    }
-    throw new GatewayError(
-      error?.message ?? `The gateway answered with status ${response.status}.`,
-      response.status,
-      error?.code ?? 'UNKNOWN',
-      error?.details,
-    );
-  }
-  return payload as T;
-}
-
-const enc = encodeURIComponent;
-// Unique key per call so a retried create or publish cannot apply twice.
-const idempotency = (): Record<string, string> => ({
-  'Idempotency-Key': crypto.randomUUID(),
-});
-const collectionPath = (connectionId: string, collection: string): string =>
-  `/v1/connections/${enc(connectionId)}/collections/${enc(collection)}`;
+// The rest of the app imports everything from here.
+export type * from './wire';
+export {
+  GatewayError,
+  absoluteUrl,
+  configureGateway,
+  currentWorkspace,
+  enterWorkspace,
+  hasToken,
+  inviteLink,
+  joiningWorkspace,
+  onSessionEnded,
+  setToken,
+  ssoError,
+} from './client';
 
 /**
  * All gateway endpoints, grouped by area. Methods resolve to unwrapped data or
  * throw GatewayError.
  */
 export const gateway = {
+  schema: (signal?: AbortSignal) =>
+    request<{ data: SchemaReport }>('GET', '/v1/schema', { signal }).then(
+      (r) => r.data,
+    ),
+
   me: (signal?: AbortSignal) =>
     request<{ data: Me }>('GET', '/v1/me', { signal }).then((r) => r.data),
 
@@ -535,6 +101,7 @@ export const gateway = {
         authDomain?: string;
         projectId?: string;
         providers?: string[];
+        workspaces?: boolean;
       };
     }>('GET', '/v1/auth/config', { signal }).then(
       (r) => ({
@@ -551,6 +118,7 @@ export const gateway = {
                 authDomain: r.firebase.authDomain,
                 projectId: r.firebase.projectId,
                 providers: r.firebase.providers ?? [],
+                ...(r.firebase.workspaces ? { workspaces: true } : {}),
               },
             }
           : {}),
@@ -558,12 +126,34 @@ export const gateway = {
       () => ({ sso: false, google: false, github: false }),
     ),
   /** Trade a Firebase ID token for a SethuCMS session. */
-  firebaseLogin: (idToken: string) =>
-    request<{ data: { token: string; expiresAt: string } }>(
+  firebaseLogin: async (
+    idToken: string,
+    how: { workspace?: string; open?: boolean } = {},
+  ): Promise<{ token: string; expiresAt: string; workspace: string | null }> => {
+    // Sign-in always starts at the front door.
+    enterWorkspace(null);
+    if (how.workspace && WORKSPACE_ID.test(how.workspace)) {
+      // An invited person joins the workspace that invited them.
+      const r = await request<{ data: { token: string; expiresAt: string } }>(
+        'POST',
+        `/w/${how.workspace}/v1/auth/firebase`,
+        { body: { idToken } },
+      );
+      return { ...r.data, workspace: how.workspace };
+    }
+    if (how.open) {
+      const r = await request<{
+        data: { token: string; expiresAt: string; workspace: string | null };
+      }>('POST', '/v1/workspaces/signin', { body: { idToken } });
+      return r.data;
+    }
+    const r = await request<{ data: { token: string; expiresAt: string } }>(
       'POST',
       '/v1/auth/firebase',
       { body: { idToken } },
-    ).then((r) => r.data),
+    );
+    return { ...r.data, workspace: null };
+  },
   /**
    * Does the gateway have people set up for authenticator-app sign-in? Never
    * throws: the API-token form still works.
@@ -988,20 +578,3 @@ export const gateway = {
     }
   },
 };
-
-/** The social sign-in methods a gateway offers (from /v1/auth/config). */
-export interface SocialConfig {
-  /** Some OpenID Connect provider is set up. */
-  sso: boolean;
-  /** That provider is Google. */
-  google: boolean;
-  /** Direct GitHub sign-in is set up. */
-  github: boolean;
-  /** Firebase Authentication is set up; public web settings for the popup. */
-  firebase?: {
-    apiKey: string;
-    authDomain: string;
-    projectId: string;
-    providers: string[];
-  };
-}

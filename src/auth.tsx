@@ -14,8 +14,10 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  enterWorkspace,
   gateway,
   hasToken,
+  joiningWorkspace,
   onSessionEnded,
   setToken,
   usingSampleData,
@@ -128,7 +130,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider: 'google' | 'github',
     ) => {
       const idToken = await firebaseIdToken(firebase, provider);
-      const session = await gateway.firebaseLogin(idToken);
+      // An invitation link joins that workspace; otherwise, where workspaces
+      // are on, everyone signs in to a workspace of their own.
+      const joining = joiningWorkspace();
+      const session = await gateway.firebaseLogin(
+        idToken,
+        joining ? { workspace: joining } : firebase.workspaces ? { open: true } : {},
+      );
+      // Calls from here on go to the person's workspace.
+      enterWorkspace(session.workspace);
       setToken(session.token);
       try {
         setMe(await gateway.me());

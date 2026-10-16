@@ -13,6 +13,7 @@ import {
 import { contentHref, navigate } from '../router';
 import { useAsync } from '../useAsync';
 import { FieldInput } from './FieldInput';
+import { useFieldVisibility } from '../lib/fieldVisibility';
 import { PreviewPane } from './PreviewPane';
 
 /**
@@ -155,6 +156,7 @@ function EditorForm({
   reload,
 }: EditorFormProps) {
   const isNew = target.kind !== 'record';
+  const fieldChoice = useFieldVisibility(connectionId, collectionName);
   // Mode and role both come from the gateway; this only reflects them.
   const canEdit = isNew ? detail.access.create : detail.access.update;
   const recordId = target.kind === 'record' ? target.id : null;
@@ -389,8 +391,15 @@ function EditorForm({
     titleOf(detail, record, draft, local) ||
     (isNew ? 'New record' : `#${recordId}`);
   // A database-generated key cannot be entered for a new record, so hide it.
-  const visibleFields = detail.fields.filter(
+  const editable = detail.fields.filter(
     (field) => !(field.primaryKey && field.generated && isNew),
+  );
+  // Keys and required fields always show: hiding them would hide why a save
+  // is refused.
+  const pinned = (field: (typeof editable)[number]): boolean =>
+    field.primaryKey === true || field.required === true;
+  const visibleFields = editable.filter(
+    (field) => pinned(field) || fieldChoice.isShown(field.name, field.ui?.hidden),
   );
 
   return (
@@ -497,6 +506,40 @@ function EditorForm({
             </div>
           </div>
         ) : null}
+
+        <details className="field-picker">
+          <summary>
+            Fields
+            <span className="small">
+              {' '}
+              {visibleFields.length} of {editable.length} shown
+            </span>
+          </summary>
+          <div className="field-picker-list">
+            {editable.map((field) => (
+              <label key={field.name} className="check">
+                <input
+                  type="checkbox"
+                  checked={pinned(field) || fieldChoice.isShown(field.name, field.ui?.hidden)}
+                  disabled={pinned(field)}
+                  onChange={(event) =>
+                    fieldChoice.set(field.name, event.target.checked)
+                  }
+                />
+                <span>{field.ui?.label ?? field.name}</span>
+              </label>
+            ))}
+            {fieldChoice.changed ? (
+              <button
+                type="button"
+                className="button button-quiet"
+                onClick={fieldChoice.reset}
+              >
+                Back to default
+              </button>
+            ) : null}
+          </div>
+        </details>
 
         <div className="fields">
           {visibleFields.map((field) => (

@@ -11,6 +11,7 @@ import {
   defaultGateway,
   forgetGateway,
   gateway,
+  joiningWorkspace,
   savedGateway,
   ssoError,
   type PersonSetup,
@@ -397,7 +398,16 @@ export function SignIn() {
           </p>
         ) : null}
 
-        {hasSocial ? (
+        {social.firebase?.workspaces ? (
+          <>
+            <p className="muted small">
+              {joiningWorkspace()
+                ? 'You have been invited to a workspace. Sign in with the e-mail address you were invited with.'
+                : 'Sign in to open your workspace. New here? Signing in creates your own, and you are its admin.'}
+            </p>
+            {socialSection}
+          </>
+        ) : hasSocial ? (
           <>
             {socialSection}
             <div className="signin-or" role="separator">
