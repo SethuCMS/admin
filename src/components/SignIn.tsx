@@ -408,21 +408,14 @@ export function SignIn() {
             {socialSection}
           </>
         ) : hasSocial ? (
-          <>
-            {socialSection}
-            <div className="signin-or" role="separator">
-              <span>or</span>
-            </div>
-            <details className="signin-alt" open={Boolean(error) || made !== null}>
-              <summary>{totp ? 'Use an authenticator code' : 'Set up the first admin'}</summary>
-              {codeSection}
-            </details>
-          </>
+          socialSection
         ) : (
           codeSection
         )}
 
-        {loaded ? (
+        {/* In workspace mode everyone signs in with Google or GitHub, so the
+            API-token form is hidden. Other gateways keep it for recovery. */}
+        {loaded && !hasSocial && !social.firebase?.workspaces ? (
           <details className="signin-alt">
             <summary>Use an API token instead</summary>
             {tokenForm}

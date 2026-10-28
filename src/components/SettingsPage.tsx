@@ -1,5 +1,7 @@
 import { absoluteUrl, askForGateway, forgetGateway, usingSampleData } from '../api';
 import { useAuth } from '../auth';
+import { hasProjects } from '../api/projects';
+import { ProjectsPanel } from './ProjectsPanel';
 import { SchemaPanel } from './SchemaPanel';
 
 export function SettingsPage() {
@@ -25,6 +27,7 @@ export function SettingsPage() {
           </div>
         ) : null}
       </dl>
+      {hasProjects() && !usingSampleData ? <ProjectsPanel /> : null}
       {me?.role === 'admin' && !usingSampleData ? <SchemaPanel /> : null}
       {askForGateway ? (
         <p>

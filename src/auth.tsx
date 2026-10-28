@@ -200,16 +200,21 @@ export function useGatewayEvents(
     }
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // A gateway that cannot stream (serverless answers 501) is not asked again.
+    let unsupported = false;
 
     const connect = () => {
       gateway
         .streamEvents((event) => latest.current(event), controller.signal)
         // Drops are expected (network, deploys); the reconnect below handles
         // them.
-        .catch(() => undefined)
+        .catch((error: unknown) => {
+          const status = (error as { status?: number } | null)?.status;
+          unsupported = status === 501 || status === 404;
+        })
         .finally(() => {
-          // Do not reconnect after cleanup.
-          if (!controller.signal.aborted) {
+          // Do not reconnect after cleanup, or when streaming is unsupported.
+          if (!controller.signal.aborted && !unsupported) {
             timer = setTimeout(connect, 3000);
           }
         });

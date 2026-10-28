@@ -172,6 +172,20 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+/** How long one gateway call may take before the person is told. */
+const REQUEST_TIMEOUT_MS = 20_000;
+/** Pause before the single automatic retry of a read. */
+const RETRY_DELAY_MS = 800;
+
+/**
+ * A new or idle project can need a few seconds to wake up on the first call.
+ * Reads that fail only because it is still waking (no answer in time, network
+ * hiccup, or a 503) are tried once more; writes are never repeated.
+ */
+const isWakingUp = (error: unknown): boolean =>
+  error instanceof GatewayError &&
+  (error.code === 'TIMEOUT' || error.code === 'NETWORK' || error.status === 503);
+
 /**
  * Single choke point for gateway calls: adds auth, converts every failure to
  * GatewayError and signs out on 401.
@@ -180,6 +194,23 @@ export async function request<T>(
   method: string,
   path: string,
   options: RequestOptions = {},
+): Promise<T> {
+  try {
+    return await send<T>(method, path, options);
+  } catch (error) {
+    if (method !== 'GET' || options.signal?.aborted || !isWakingUp(error)) {
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    return send<T>(method, path, options);
+  }
+}
+
+/** One attempt at a gateway call, cut off after REQUEST_TIMEOUT_MS. */
+async function send<T>(
+  method: string,
+  path: string,
+  options: RequestOptions,
 ): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -192,14 +223,21 @@ export async function request<T>(
     headers['Content-Type'] = 'application/json';
   }
 
+  // One controller covers both the caller's cancel and our own time limit.
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+  const forwardCancel = (): void => controller.abort();
+  options.signal?.addEventListener('abort', forwardCancel, { once: true });
+
   let response: Response;
   try {
-    const init: RequestInit = { method, headers };
+    const init: RequestInit = { method, headers, signal: controller.signal };
     if (options.body !== undefined) {
       init.body = JSON.stringify(options.body);
-    }
-    if (options.signal) {
-      init.signal = options.signal;
     }
     response = await fetch(baseUrl + path, init);
   } catch (error) {
@@ -208,11 +246,21 @@ export async function request<T>(
     if (options.signal?.aborted) {
       throw error;
     }
+    if (timedOut) {
+      throw new GatewayError(
+        'The gateway is taking too long to answer. Try again in a moment.',
+        0,
+        'TIMEOUT',
+      );
+    }
     throw new GatewayError(
       'The gateway could not be reached. Check that it is running and try again.',
       0,
       'NETWORK',
     );
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', forwardCancel);
   }
 
   // No content (deletes): nothing to parse.

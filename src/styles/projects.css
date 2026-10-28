@@ -1,0 +1,19 @@
+/* The project picker in the sidebar and the project list in Settings. */
+.project-switcher select {
+  width: 100%;
+  min-height: 36px;
+  font-weight: 600;
+}
+.project-new {
+  display: grid;
+  gap: 6px;
+}
+.project-add {
+  justify-self: start;
+}
+.project-actions {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  padding: 10px 0 4px;
+}
