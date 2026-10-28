@@ -18,6 +18,7 @@ export type Route =
       collection?: string;
       recordId?: string;
     }
+  | { name: 'dashboard' }
   | { name: 'access' }
   | { name: 'audit' }
   | { name: 'migrate' }
@@ -51,6 +52,8 @@ export function parseRoute(hash: string): Route {
         ...(b ? { collection: b } : {}),
         ...(c ? { recordId: c } : {}),
       };
+    case 'dashboard':
+      return { name: 'dashboard' };
     case 'access':
       return { name: 'access' };
     case 'audit':

@@ -13,6 +13,7 @@ import { ConnectGateway } from './components/ConnectGateway';
 import { ConnectionDetailPage } from './components/ConnectionDetailPage';
 import { ConnectionsPage } from './components/ConnectionsPage';
 import { ContentPage } from './components/ContentPage';
+import { DashboardPage } from './components/DashboardPage';
 import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
 import { Shell } from './components/Shell';
@@ -27,6 +28,7 @@ const TITLES: Record<Route['name'], string> = {
   connections: 'Connections',
   connection: 'Connection',
   content: 'Content',
+  dashboard: 'Dashboards',
   access: 'Roles and access',
   audit: 'Audit log',
   migrate: 'Move data',
@@ -127,7 +129,9 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
     return null; // the redirect to Home is already under way
   }
   // This panel is for administrators. People who only edit content use /sethu.
-  if (!contentOnly && !usingSampleData && !isAdmin) {
+  // Dashboards are open to anyone signed in: they read through the same
+  // permission checks as content, so each person sees only what their role allows.
+  if (!contentOnly && !usingSampleData && !isAdmin && route.name !== 'dashboard') {
     return (
       <ComingNext
         title="Admin panel"
@@ -170,6 +174,8 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
       return <ConnectionDetailPage connectionId={route.connectionId} />;
     case 'content':
       return <ContentPage route={route} />;
+    case 'dashboard':
+      return <DashboardPage />;
     case 'access':
       return <AccessPage />;
     case 'audit':

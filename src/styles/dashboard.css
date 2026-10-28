@@ -1,0 +1,19 @@
+/* ---------- Dashboards ---------- */
+.dash-pickers { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.dash-pickers label { display: grid; gap: 4px; font-size: var(--step--1); color: var(--ink-soft); }
+.dash-pickers select { font: inherit; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); min-width: 200px; }
+.dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.dash-stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.dash-stat b { display: block; font-size: var(--step-2); font-variant-numeric: tabular-nums; }
+.dash-stat span { color: var(--ink-soft); font-size: var(--step--1); }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.dash-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.dash-card h2 { font-size: var(--step-0); margin: 0 0 12px; }
+.dash-bar { display: grid; grid-template-columns: minmax(70px, 38%) 1fr auto; align-items: center; gap: 8px; margin: 6px 0; font-size: var(--step--1); }
+.dash-bar .track { height: 10px; background: var(--cobalt-wash); border-radius: 99px; overflow: hidden; }
+.dash-bar .fill { display: block; height: 100%; background: var(--cobalt); border-radius: 99px; }
+.dash-bar .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-days { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
+.dash-days .col { flex: 1; background: var(--cobalt-wash); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+.dash-days .col.today { background: var(--cobalt); }
+.dash-days-labels { display: flex; justify-content: space-between; color: var(--ink-soft); font-size: var(--step--1); margin-top: 4px; }
