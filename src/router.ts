@@ -19,6 +19,7 @@ export type Route =
       recordId?: string;
     }
   | { name: 'dashboard' }
+  | { name: 'designwear' }
   | { name: 'access' }
   | { name: 'audit' }
   | { name: 'migrate' }
@@ -54,6 +55,8 @@ export function parseRoute(hash: string): Route {
       };
     case 'dashboard':
       return { name: 'dashboard' };
+    case 'designwear':
+      return { name: 'designwear' };
     case 'access':
       return { name: 'access' };
     case 'audit':

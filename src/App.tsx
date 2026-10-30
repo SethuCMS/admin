@@ -14,6 +14,7 @@ import { ConnectionDetailPage } from './components/ConnectionDetailPage';
 import { ConnectionsPage } from './components/ConnectionsPage';
 import { ContentPage } from './components/ContentPage';
 import { DashboardPage } from './components/DashboardPage';
+import { DesignWearPage } from './components/DesignWearPage';
 import { HomePage } from './components/HomePage';
 import { SettingsPage } from './components/SettingsPage';
 import { Shell } from './components/Shell';
@@ -29,6 +30,7 @@ const TITLES: Record<Route['name'], string> = {
   connection: 'Connection',
   content: 'Content',
   dashboard: 'Dashboards',
+  designwear: 'DesignWear',
   access: 'Roles and access',
   audit: 'Audit log',
   migrate: 'Move data',
@@ -131,7 +133,7 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
   // This panel is for administrators. People who only edit content use /sethu.
   // Dashboards are open to anyone signed in: they read through the same
   // permission checks as content, so each person sees only what their role allows.
-  if (!contentOnly && !usingSampleData && !isAdmin && route.name !== 'dashboard') {
+  if (!contentOnly && !usingSampleData && !isAdmin && route.name !== 'dashboard' && route.name !== 'designwear') {
     return (
       <ComingNext
         title="Admin panel"
@@ -176,6 +178,8 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
       return <ContentPage route={route} />;
     case 'dashboard':
       return <DashboardPage />;
+    case 'designwear':
+      return <DesignWearPage />;
     case 'access':
       return <AccessPage />;
     case 'audit':

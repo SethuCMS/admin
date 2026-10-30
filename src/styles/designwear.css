@@ -1,0 +1,17 @@
+/* ---------- DesignWear views ---------- */
+.dw-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; border-bottom: 1px solid var(--line); }
+.dw-tabs button { font: inherit; padding: 8px 14px; border: 0; background: none; color: var(--ink-soft); border-bottom: 2px solid transparent; cursor: pointer; }
+.dw-tabs button.on { color: var(--ink); border-bottom-color: var(--cobalt); font-weight: 600; }
+.dash-stat.warn b { color: #b42318; }
+.dw-orders { margin-top: 16px; }
+.dw-order { border-top: 1px solid var(--line); padding: 12px 0; display: grid; gap: 4px; }
+.dw-order header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.dw-order p { margin: 0; }
+.dw-status { font-size: var(--step--1); padding: 2px 8px; border-radius: 99px; background: var(--cobalt-wash); text-transform: capitalize; }
+.dw-status.s-cancelled { background: #fde7e7; color: #b42318; }
+.dw-status.s-delivered { background: #e3f6e8; color: #1a7f37; }
+.dw-cash { color: #b54708; }
+.dw-inline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.dw-inline input, .dw-inline select { font: inherit; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); min-width: 180px; }
+.dw-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.button.danger { color: #b42318; border-color: #f0b4b0; }
