@@ -13,6 +13,7 @@ import {
   toLocalInput,
 } from './fields/helpers';
 import { JsonInput } from './fields/JsonInput';
+import { LinkList } from './fields/LinkList';
 import { ReferenceSelect } from './fields/ReferenceSelect';
 
 /** Props for one editable field. */
@@ -242,6 +243,9 @@ export function FieldInput({
         ) : null}
       </label>
       {control}
+      {!field.masked && (field.type === 'string' || field.type === 'text') ? (
+        <LinkList value={value} />
+      ) : null}
       {field.ui?.description || hintFor(field) ? (
         <span id={hintId} className="field-hint">
           {[field.ui?.description, hintFor(field)].filter(Boolean).join(' ')}

@@ -270,3 +270,19 @@
   margin: 0;
   word-break: break-word;
 }
+
+/* Links found in a text field: shown under it, the stored text stays as it is. */
+.field-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.field-links a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
