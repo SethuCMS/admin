@@ -26,6 +26,7 @@ const NAV: Array<{
   { name: 'dashboard', href: '#/dashboard', label: 'Dashboards', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
   { name: 'migrate', href: '#/migrate', label: 'Move data', icon: 'M4 8h13l-3-3M20 16H7l3 3', adminOnly: true },
   { name: 'access', href: '#/access', label: 'Roles and access', icon: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 010 6M18 14c1.8.6 3 2.4 3 4.5', adminOnly: true },
+  { name: 'origins', href: '#/origins', label: 'CORS origins', icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z', adminOnly: true },
   { name: 'audit', href: '#/audit', label: 'Audit log', icon: 'M5 4h14v16H5zM9 9h6M9 13h6M9 17h3', adminOnly: true },
   { name: 'settings', href: '#/settings', label: 'Settings', icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-1-3-2 .5-1.5-1.5L17 5l-3-1-1 2h-2L10 4 7 5l.5 2.5L6 9l-2-.5-1 3 2 1v2l-2 1 1 3 2-.5L7.5 18 7 20l3 1 1-2h2l1 2 3-1-.5-2 1.5-1.5 2 .5 1-3-2-1z' },
 ];
@@ -37,6 +38,7 @@ const TITLES: Record<Route['name'], string> = {
   content: 'Content',
   dashboard: 'Dashboards',
   access: 'Roles and access',
+  origins: 'CORS origins',
   audit: 'Audit log',
   migrate: 'Move data',
   settings: 'Settings',

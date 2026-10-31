@@ -20,6 +20,7 @@ export type Route =
     }
   | { name: 'dashboard' }
   | { name: 'access' }
+  | { name: 'origins' }
   | { name: 'audit' }
   | { name: 'migrate' }
   | { name: 'settings' };
@@ -56,6 +57,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'dashboard' };
     case 'access':
       return { name: 'access' };
+    case 'origins':
+      return { name: 'origins' };
     case 'audit':
       return { name: 'audit' };
     case 'migrate':

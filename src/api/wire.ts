@@ -290,6 +290,14 @@ export interface PersonSetup extends PersonInfo {
 }
 
 /** An e-mail address invited to sign in with Google or GitHub. */
+/** A browser origin allowed to call the gateway (CORS). `id` is null for ones set in the gateway's environment. */
+export interface OriginInfo {
+  id: string | null;
+  origin: string;
+  source: 'environment' | 'admin';
+  createdAt: string | null;
+}
+
 export interface InviteInfo {
   id: string;
   email: string;

@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { needsGateway, usingSampleData } from './api';
 import { AuthProvider, useAuth, useGatewayEvents } from './auth';
 import { AccessPage } from './components/AccessPage';
+import { OriginsPage } from './components/OriginsPage';
 import { AuditPage } from './components/AuditPage';
 import { MigratePage } from './components/MigratePage';
 import { ComingNext } from './components/ComingNext';
@@ -30,6 +31,7 @@ const TITLES: Record<Route['name'], string> = {
   content: 'Content',
   dashboard: 'Dashboards',
   access: 'Roles and access',
+  origins: 'CORS origins',
   audit: 'Audit log',
   migrate: 'Move data',
   settings: 'Settings',
@@ -155,7 +157,7 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
 
   if (
     !isAdmin &&
-    ['connections', 'connection', 'access', 'audit', 'migrate'].includes(
+    ['connections', 'connection', 'access', 'origins', 'audit', 'migrate'].includes(
       route.name,
     )
   ) {
@@ -178,6 +180,8 @@ function Page({ route, isAdmin, homeState, reloadHome }: PageProps) {
       return <DashboardPage />;
     case 'access':
       return <AccessPage />;
+    case 'origins':
+      return <OriginsPage />;
     case 'audit':
       return <AuditPage />;
     case 'migrate':

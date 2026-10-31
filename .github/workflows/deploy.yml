@@ -1,0 +1,68 @@
+name: Deploy (Vercel)
+
+# On every push to main: type check, run the tests, deploy a clean copy to the sethucms-admin
+# Vercel project (Vercel builds it with the project's own settings), then check the live site.
+# Needs the repository secrets VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Test, deploy and check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://sethucms-admin.vercel.app' }}
+    steps:
+      - name: Check Vercel credentials
+        run: |
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret $name is not set."
+              exit 1
+            fi
+          done
+
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm typecheck
+      - run: node --test
+
+      # A clean copy of the commit, outside git: the CLI would otherwise attach the commit author,
+      # and Vercel blocks the deploy when that account is not on the Vercel team.
+      - name: Deploy to Vercel (production)
+        run: |
+          site="$RUNNER_TEMP/admin"
+          mkdir -p "$site"
+          git archive HEAD | tar -x -C "$site"
+          cd "$site"
+          npx --yes vercel@65.5.0 deploy --prod --yes
+
+      - name: Check the live site
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE_URL/" || true)
+            [ "$code" = "200" ] && break
+            echo "Attempt $attempt: $SITE_URL answered $code"; sleep 10
+          done
+          if [ "$code" != "200" ]; then echo "::error::The site is not answering at $SITE_URL"; exit 1; fi

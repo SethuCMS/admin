@@ -15,6 +15,7 @@ import type {
   DraftInfo,
   GatewayEvent,
   InviteInfo,
+  OriginInfo,
   Me,
   MigrationJob,
   MigrationOptions,
@@ -493,6 +494,16 @@ export const gateway = {
     ),
   removeInvite: (id: string) =>
     request<void>('DELETE', `/v1/admin/invites/${enc(id)}`),
+  origins: () =>
+    request<{ data: OriginInfo[] }>('GET', '/v1/admin/origins').then(
+      (r) => r.data,
+    ),
+  addOrigin: (origin: string) =>
+    request<{ data: OriginInfo }>('POST', '/v1/admin/origins', {
+      body: { origin },
+    }).then((r) => r.data),
+  removeOrigin: (id: string) =>
+    request<void>('DELETE', `/v1/admin/origins/${enc(id)}`),
   audit: (limit = 100, signal?: AbortSignal) =>
     request<{ data: AuditItem[] }>('GET', `/v1/admin/audit?limit=${limit}`, {
       signal,
