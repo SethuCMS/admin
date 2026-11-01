@@ -73,7 +73,7 @@ export function OriginsPage() {
 
         {origins.state.status === 'ready' ? (
           origins.state.data.length === 0 ? (
-            <p className="muted">No origins yet. Browsers on other sites are blocked.</p>
+            <p className="muted">None added yet. The SethuCMS admin always works. Add the address of any other site of yours that needs to call this gateway from a browser.</p>
           ) : (
             <ul className="rows">
               {origins.state.data.map((item) => (
