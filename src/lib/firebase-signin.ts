@@ -25,6 +25,16 @@ const FRIENDLY: Record<string, string> = {
   'auth/web-storage-unsupported': 'This browser blocks the storage sign-in needs. Try a normal (not private) window, or allow third-party cookies for this site.',
 };
 
+/** This site is not on the Firebase project's authorized domains: use the bridge. */
+export class UnauthorizedDomainError extends Error {
+  constructor() {
+    super(
+      'This site is not on the sign-in provider\'s authorized domains. Use the button below to sign in through SethuCMS instead.',
+    );
+    this.name = 'UnauthorizedDomainError';
+  }
+}
+
 /**
  * Open the popup and return a fresh Firebase ID token.
  * @throws Error with a message that can be shown as it is.
@@ -64,6 +74,9 @@ export async function firebaseIdToken(
     return await result.user.getIdToken(true);
   } catch (cause) {
     const code = (cause as { code?: string }).code ?? '';
+    if (code === 'auth/unauthorized-domain') {
+      throw new UnauthorizedDomainError();
+    }
     // Unknown cases show the Firebase code, so it can be looked up or reported.
     throw new Error(
       FRIENDLY[code] ??

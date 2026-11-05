@@ -58,6 +58,7 @@ export {
   configureGateway,
   currentWorkspace,
   enterWorkspace,
+  gatewayRoot,
   hasToken,
   inviteLink,
   joiningWorkspace,
@@ -128,6 +129,15 @@ export const gateway = {
       }),
       () => ({ sso: false, google: false, github: false }),
     ),
+  /**
+   * Whether a site may receive a sign-in from the bridge: true only when this
+   * gateway (or the workspace) lists it as an allowed origin.
+   */
+  bridgeAllowed: (origin: string, workspace: string | null = null) =>
+    request<{ data: { allowed: boolean } }>(
+      'GET',
+      `${workspace && WORKSPACE_ID.test(workspace) ? `/w/${workspace}` : ''}/v1/auth/bridge-origin?origin=${encodeURIComponent(origin)}`,
+    ).then((r) => r.data.allowed === true),
   /** Trade a Firebase ID token for a SethuCMS session. */
   firebaseLogin: async (
     idToken: string,

@@ -5,6 +5,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
 import { SetupKey } from './SetupKey';
+import { UnauthorizedDomainError } from '../lib/firebase-signin';
+import { bridgeIdToken, canUseBridge } from '../lib/signin-bridge';
 import {
   absoluteUrl,
   askForGateway,
@@ -36,7 +38,9 @@ const SSO_MESSAGES = {
  * for recovery.
  */
 export function SignIn() {
-  const { signIn, signInWithCode, signInWithFirebase, startSetup } = useAuth();
+  const { signIn, signInWithCode, signInWithFirebase, signInWithIdToken, startSetup } = useAuth();
+  // Set when this site is not on Firebase's authorized domains and the gateway can sign people in for it.
+  const [viaBridge, setViaBridge] = useState(false);
   const [token, setToken] = useState('');
   const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
@@ -97,6 +101,26 @@ export function SignIn() {
     setError(null);
     try {
       await signInWithFirebase(social.firebase, provider);
+    } catch (cause) {
+      if (cause instanceof UnauthorizedDomainError && canUseBridge()) {
+        setViaBridge(true);
+      }
+      setError(cause instanceof Error ? cause.message : 'Sign-in failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Sign in through the window on the gateway's own address (see lib/signin-bridge.ts).
+  const continueViaBridge = async (provider: 'google' | 'github') => {
+    if (!social.firebase) {
+      return;
+    }
+    setError(null);
+    try {
+      const idToken = await bridgeIdToken(provider, joiningWorkspace());
+      setBusy(true);
+      await signInWithIdToken(idToken, social.firebase);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign-in failed.');
     } finally {
@@ -396,6 +420,20 @@ export function SignIn() {
           <p className="form-error" role="alert">
             {SSO_MESSAGES[ssoError]}
           </p>
+        ) : null}
+
+        {viaBridge ? (
+          <div className="social-buttons">
+            <button className="button button-quiet social-button" type="button" disabled={busy} onClick={() => void continueViaBridge('google')}>
+              <GoogleMark /> Sign in with Google through SethuCMS
+            </button>
+            <button className="button button-quiet social-button" type="button" disabled={busy} onClick={() => void continueViaBridge('github')}>
+              <GithubMark /> Sign in with GitHub through SethuCMS
+            </button>
+            <p className="muted small">
+              This site must be listed under CORS origins in the gateway or workspace.
+            </p>
+          </div>
         ) : null}
 
         {social.firebase?.workspaces ? (

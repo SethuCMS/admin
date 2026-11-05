@@ -39,6 +39,11 @@ interface AuthValue {
     firebase: NonNullable<SocialConfig['firebase']>,
     provider: 'google' | 'github',
   ): Promise<void>;
+  /** Finish a sign-in from a Firebase ID token already obtained (the bridge path). */
+  signInWithIdToken(
+    idToken: string,
+    firebase: NonNullable<SocialConfig['firebase']>,
+  ): Promise<void>;
   /**
    * First start: use the one-time setup token to create the first admin
    * account. The token is not kept; the person then signs in with a code.
@@ -124,12 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signInWithFirebase = useCallback(
-    async (
-      firebase: NonNullable<SocialConfig['firebase']>,
-      provider: 'google' | 'github',
-    ) => {
-      const idToken = await firebaseIdToken(firebase, provider);
+  const signInWithIdToken = useCallback(
+    async (idToken: string, firebase: NonNullable<SocialConfig['firebase']>) => {
       // An invitation link joins that workspace; otherwise, where workspaces
       // are on, everyone signs in to a workspace of their own.
       const joining = joiningWorkspace();
@@ -150,6 +151,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const signInWithFirebase = useCallback(
+    async (
+      firebase: NonNullable<SocialConfig['firebase']>,
+      provider: 'google' | 'github',
+    ) => {
+      await signInWithIdToken(await firebaseIdToken(firebase, provider), firebase);
+    },
+    [signInWithIdToken],
+  );
+
   const startSetup = useCallback(async (setupToken: string, username: string) => {
     // The token is used for this one request and then dropped.
     setToken(setupToken.trim());
@@ -164,8 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ me, signIn, signInWithCode, signInWithFirebase, startSetup, signOut }),
-    [me, signIn, signInWithCode, signInWithFirebase, startSetup, signOut],
+    () => ({ me, signIn, signInWithCode, signInWithFirebase, signInWithIdToken, startSetup, signOut }),
+    [me, signIn, signInWithCode, signInWithFirebase, signInWithIdToken, startSetup, signOut],
   );
   if (phase === 'checking') {
     return (

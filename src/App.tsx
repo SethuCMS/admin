@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { needsGateway, usingSampleData } from './api';
 import { AuthProvider, useAuth, useGatewayEvents } from './auth';
 import { AccessPage } from './components/AccessPage';
+import { BridgePage } from './components/BridgePage';
 import { OriginsPage } from './components/OriginsPage';
 import { AuditPage } from './components/AuditPage';
 import { MigratePage } from './components/MigratePage';
@@ -41,6 +42,10 @@ const TITLES: Record<Route['name'], string> = {
 export function App() {
   if (needsGateway) {
     return <ConnectGateway />;
+  }
+  // The window other sites open to sign in through this gateway's address.
+  if (window.location.hash.startsWith('#/bridge')) {
+    return <BridgePage />;
   }
   return (
     <AuthProvider>

@@ -58,6 +58,9 @@ export function enterWorkspace(id: string | null): void {
   }
 }
 
+/** The gateway's own address (no /w/<workspace>); empty when the app is served by the gateway. */
+export const gatewayRoot = (): string => rootUrl;
+
 /** The workspace id in use, or null on the main workspace. */
 export const currentWorkspace = (): string | null => workspace;
 
