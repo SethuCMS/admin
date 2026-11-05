@@ -520,7 +520,21 @@ export const gateway = {
     ),
   removeInvite: (id: string) =>
     request<void>('DELETE', `/v1/admin/invites/${enc(id)}`),
-  origins: () => request<OriginsView>('GET', '/v1/admin/origins'),
+  origins: () =>
+    request<OriginsView>('GET', '/v1/admin/origins').then((r) => {
+      // An older or misconfigured gateway may answer without a list; show a
+      // readable error rather than crashing the page.
+      if (!r || !Array.isArray(r.data)) {
+        throw new Error(
+          'The gateway sent an unexpected answer for CORS origins. It may need updating.',
+        );
+      }
+      return {
+        ...r,
+        blocked: Array.isArray(r.blocked) ? r.blocked : [],
+        wildcardsEnabled: r.wildcardsEnabled === true,
+      };
+    }),
   addOrigin: (origin: string) =>
     request<{ data: OriginInfo }>('POST', '/v1/admin/origins', {
       body: { origin },
