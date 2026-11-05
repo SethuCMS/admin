@@ -9,6 +9,7 @@ import {
   type CollectionSummary,
   type ConnectionListItem,
   type DraftInfo,
+  type RecordCount,
   type RecordData,
 } from '../api';
 import { useGatewayEvents } from '../auth';
@@ -18,6 +19,7 @@ import { useSidebarOpen } from '../lib/sidebar';
 import { contentHref, type Route } from '../router';
 import { useAsync } from '../useAsync';
 import { RecordEditor, targetFromParam } from './RecordEditor';
+import { describeTime } from './ScheduleBox';
 
 /**
  * The content variant of Route, with optional connection, collection and
@@ -43,14 +45,28 @@ export function ContentPage({ route }: { route: ContentRoute }) {
         collections: await gateway
           .collections(connection.id, signal)
           .catch(() => [] as CollectionSummary[]),
+        // Counts are a nicety: if they fail the list still shows.
+        counts: await gateway
+          .counts(connection.id, signal)
+          .catch(() => ({}) as Record<string, RecordCount | null>),
       })),
     );
   }, `structure:${round}`);
 
-  // Refresh the tree when a connection is added, removed or changed.
+  // Refresh the tree when a connection is added, removed or changed. Record
+  // changes only refresh the counts, after a short pause so a burst of edits
+  // causes one reload.
+  const countTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(countTimer.current), []);
   useGatewayEvents((event) => {
     if (event.type === 'connection.changed') {
       setRound((n) => n + 1);
+    } else if (
+      event.type === 'record.created' ||
+      event.type === 'record.deleted'
+    ) {
+      window.clearTimeout(countTimer.current);
+      countTimer.current = window.setTimeout(() => setRound((n) => n + 1), 800);
     }
   });
 
@@ -89,11 +105,12 @@ export function ContentPage({ route }: { route: ContentRoute }) {
           </p>
         ) : null}
         {structure.state.status === 'ready'
-          ? structure.state.data.map(({ connection, collections }) => (
+          ? structure.state.data.map(({ connection, collections, counts }) => (
               <Group
                 key={connection.id}
                 connection={connection}
                 collections={collections}
+                counts={counts}
                 route={route}
               />
             ))
@@ -109,7 +126,7 @@ export function ContentPage({ route }: { route: ContentRoute }) {
         />
       ) : (
         <section className="cms-area cms-area-empty">
-          <p className="muted">Choose a collection on the left to see its records.</p>
+          <p className="muted">Choose a collection to see its records.</p>
         </section>
       )}
     </div>
@@ -120,10 +137,12 @@ export function ContentPage({ route }: { route: ContentRoute }) {
 function Group({
   connection,
   collections,
+  counts,
   route,
 }: {
   connection: ConnectionListItem;
   collections: CollectionSummary[];
+  counts: Record<string, RecordCount | null>;
   route: ContentRoute;
 }) {
   return (
@@ -154,13 +173,31 @@ function Group({
                     : undefined
                 }
               >
-                {collection.displayName}
+                <span className="nav-name">{collection.displayName}</span>
+                <CountBadge count={counts[collection.name]} />
               </a>
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+/** The number of records next to a collection name; "1,000+" when capped. */
+function CountBadge({ count }: { count: RecordCount | null | undefined }) {
+  if (!count) {
+    return null;
+  }
+  const shown = `${count.count.toLocaleString()}${count.exact ? '' : '+'}`;
+  const words = `${count.exact ? '' : 'at least '}${count.count.toLocaleString()} ${
+    count.count === 1 && count.exact ? 'record' : 'records'
+  }`;
+  return (
+    <span className="nav-count" title={words}>
+      <span aria-hidden="true">{shown}</span>
+      <span className="visually-hidden">, {words}</span>
+    </span>
   );
 }
 
@@ -225,6 +262,8 @@ function CollectionView({
   recordParam?: string | undefined;
 }) {
   const titleField = titleFieldOf(collection);
+  // A singleton has one record: no list, no "New", no ordering.
+  const singleton = collection.ui?.singleton === true;
   const [newestFirst, setNewestFirst] = useState(true);
   // The search box is in the top bar; this collection says what it is for.
   const { value: search } = useHeaderSearch();
@@ -232,11 +271,15 @@ function CollectionView({
   const titleName = titleField?.name;
   useEffect(() => {
     setHeaderSearch({
-      placeholder: titleName ? `Search ${collection.name} by ${titleName}` : null,
+      // A singleton has one record, so there is nothing to search.
+      placeholder:
+        titleName && !singleton
+          ? `Search ${collection.name} by ${titleName}`
+          : null,
       value: '',
     });
     return () => setHeaderSearch({ placeholder: null, value: '' });
-  }, [collection.name, titleName]);
+  }, [collection.name, titleName, singleton]);
 
   useEffect(() => {
     // Debounce typing so each keystroke does not hit the gateway.
@@ -254,15 +297,17 @@ function CollectionView({
           <h2>{collection.ui?.title ?? collection.name}</h2>
         </div>
         <div className="cms-toolbar-actions">
-          <button
-            className="button button-small button-quiet"
-            type="button"
-            onClick={() => setNewestFirst((value) => !value)}
-            aria-label={`Order: ${newestFirst ? 'newest first' : 'oldest first'}. Change order`}
-          >
-            {newestFirst ? 'Newest first' : 'Oldest first'}
-          </button>
-          {collection.access.create ? (
+          {singleton ? null : (
+            <button
+              className="button button-small button-quiet"
+              type="button"
+              onClick={() => setNewestFirst((value) => !value)}
+              aria-label={`Order: ${newestFirst ? 'newest first' : 'oldest first'}. Change order`}
+            >
+              {newestFirst ? 'Newest first' : 'Oldest first'}
+            </button>
+          )}
+          {collection.access.create && !singleton ? (
             <a
               className="button button-small"
               // "~" prefixes mark drafts in the URL; "~new" starts a blank one.
@@ -274,33 +319,98 @@ function CollectionView({
         </div>
       </header>
 
-      <div className="cms-work" data-open={recordParam ? 'record' : 'list'}>
-        <RecordList
-          connectionId={connectionId}
-          detail={collection}
-          selected={recordParam}
-          query={query}
-          newestFirst={newestFirst}
-        />
-        {recordParam ? (
-          <section className="cms-editor">
-            <RecordEditor
-              connectionId={connectionId}
-              collectionName={collectionName}
-              detail={collection}
-              target={targetFromParam(recordParam)}
-            />
-          </section>
-        ) : (
-          <section className="cms-editor cms-editor-empty">
-            <p className="muted">
-              Choose a record to edit it
-              {collection.access.create ? ', or create a new one' : ''}.
-            </p>
-          </section>
-        )}
-      </div>
+      {singleton ? (
+        <div className="cms-single">
+          <SingletonEditor
+            connectionId={connectionId}
+            collectionName={collectionName}
+            detail={collection}
+            recordParam={recordParam}
+          />
+        </div>
+      ) : (
+        <div className="cms-work" data-open={recordParam ? 'record' : 'list'}>
+          <RecordList
+            connectionId={connectionId}
+            detail={collection}
+            selected={recordParam}
+            query={query}
+            newestFirst={newestFirst}
+          />
+          {recordParam ? (
+            <section className="cms-editor">
+              <RecordEditor
+                connectionId={connectionId}
+                collectionName={collectionName}
+                detail={collection}
+                target={targetFromParam(recordParam)}
+              />
+            </section>
+          ) : (
+            <section className="cms-editor cms-editor-empty">
+              <p className="muted">
+                Choose a record to edit it
+                {collection.access.create ? ', or create a new one' : ''}.
+              </p>
+            </section>
+          )}
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * The editor for a collection that holds one record. It finds that record
+ * itself, so the person never sees a list of one. If it does not exist yet,
+ * the editor opens blank.
+ */
+function SingletonEditor({
+  connectionId,
+  collectionName,
+  detail,
+  recordParam,
+}: {
+  connectionId: string;
+  collectionName: string;
+  detail: CollectionDetail;
+  recordParam?: string | undefined;
+}) {
+  const key = detail.fields.find((field) => field.primaryKey)?.name ?? 'id';
+  const found = useAsync(
+    async (signal) =>
+      recordParam
+        ? null
+        : gateway.records(connectionId, collectionName, { limit: 1 }, signal),
+    `single:${connectionId}:${collectionName}:${recordParam ?? ''}`,
+  );
+
+  if (!recordParam && found.state.status === 'loading') {
+    return (
+      <p className="muted pad" aria-busy="true">
+        Loading…
+      </p>
+    );
+  }
+  if (found.state.status === 'error') {
+    return (
+      <p className="form-error pad" role="alert">
+        {found.state.message}
+      </p>
+    );
+  }
+  const first = found.state.status === 'ready' ? found.state.data?.data[0] : undefined;
+  const param = recordParam ?? (first ? String(first[key]) : '~new');
+  if (param === '~new' && !detail.access.create) {
+    return <p className="muted pad">Nothing has been entered here yet.</p>;
+  }
+  return (
+    <RecordEditor
+      connectionId={connectionId}
+      collectionName={collectionName}
+      detail={detail}
+      target={targetFromParam(param)}
+    />
   );
 }
 
@@ -489,7 +599,11 @@ function RecordList({
                   <span className="record-title">{shown || `#${id}`}</span>
                   <span className="record-meta">
                     <span className="muted small mono">#{id}</span>
-                    {draft ? (
+                    {draft?.publishAt ? (
+                      <span className="status status-scheduled">
+                        Scheduled {describeTime(draft.publishAt)}
+                      </span>
+                    ) : draft ? (
                       <span className="status status-draft">
                         Unpublished changes
                       </span>

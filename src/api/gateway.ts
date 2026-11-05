@@ -10,12 +10,14 @@
 import type {
   CollectionDetail,
   CollectionSummary,
+  RecordCount,
   ConnectionDetail,
   ConnectionListItem,
   DraftInfo,
   GatewayEvent,
   InviteInfo,
   OriginInfo,
+  OriginsView,
   Me,
   MigrationJob,
   MigrationOptions,
@@ -194,6 +196,13 @@ export const gateway = {
       `/v1/connections/${enc(connectionId)}/collections`,
       { signal },
     ).then((r) => r.data),
+  /** Record counts for every collection the person can read (null = unavailable). */
+  counts: (connectionId: string, signal?: AbortSignal) =>
+    request<{ data: Record<string, RecordCount | null> }>(
+      'GET',
+      `/v1/connections/${enc(connectionId)}/counts`,
+      { signal },
+    ).then((r) => r.data),
   collection: (
     connectionId: string,
     collection: string,
@@ -298,6 +307,23 @@ export const gateway = {
       'POST',
       `${collectionPath(connectionId, collection)}/drafts/${enc(draftId)}/publish`,
       { body, headers: idempotency() },
+    ).then((r) => r.data),
+  /** Publish this draft by itself at `publishAt` (ISO text with a time zone). */
+  scheduleDraft: (
+    connectionId: string,
+    collection: string,
+    draftId: string,
+    publishAt: string,
+  ) =>
+    request<{ data: DraftInfo }>(
+      'PUT',
+      `${collectionPath(connectionId, collection)}/drafts/${enc(draftId)}/schedule`,
+      { body: { publishAt } },
+    ).then((r) => r.data),
+  cancelSchedule: (connectionId: string, collection: string, draftId: string) =>
+    request<{ data: DraftInfo }>(
+      'DELETE',
+      `${collectionPath(connectionId, collection)}/drafts/${enc(draftId)}/schedule`,
     ).then((r) => r.data),
   previewLink: (connectionId: string, collection: string, draftId: string) =>
     request<{ data: PreviewLink }>(
@@ -494,10 +520,7 @@ export const gateway = {
     ),
   removeInvite: (id: string) =>
     request<void>('DELETE', `/v1/admin/invites/${enc(id)}`),
-  origins: () =>
-    request<{ data: OriginInfo[] }>('GET', '/v1/admin/origins').then(
-      (r) => r.data,
-    ),
+  origins: () => request<OriginsView>('GET', '/v1/admin/origins'),
   addOrigin: (origin: string) =>
     request<{ data: OriginInfo }>('POST', '/v1/admin/origins', {
       body: { origin },

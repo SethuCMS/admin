@@ -77,7 +77,7 @@ export interface SchemaReport {
 export interface CollectionDetail {
   name: string;
   /** Title and title field from the schema file. */
-  ui?: { title?: string; titleField?: string };
+  ui?: { title?: string; titleField?: string; singleton?: boolean };
   fields: FieldInfo[];
   access: { create: boolean; update: boolean; delete: boolean };
   mode: 'read_only' | 'read_write';
@@ -106,6 +106,12 @@ export interface CollectionSummary {
     required: boolean;
     primaryKey: boolean;
   }>;
+}
+
+/** How many records a collection has: exact, or "at least" past the cap. */
+export interface RecordCount {
+  count: number;
+  exact: boolean;
 }
 
 /** A connection as listed for content editors. */
@@ -219,6 +225,10 @@ export interface DraftInfo {
   createdAt: string;
   updatedAt: string;
   publishedRecordId?: string;
+  /** When a scheduled publish will happen (UTC ISO text). */
+  publishAt?: string;
+  /** Why the last scheduled publish did not happen. */
+  scheduleError?: string;
 }
 
 /** A short-lived link to view a draft without signing in. */
@@ -296,6 +306,24 @@ export interface OriginInfo {
   origin: string;
   source: 'environment' | 'admin';
   createdAt: string | null;
+  /** When a browser last used it since the gateway started, or null. */
+  lastSeenAt: string | null;
+}
+
+/** A site that called the gateway from a browser and was refused. */
+export interface BlockedOrigin {
+  origin: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+/** The origins screen's data: what is allowed, what was refused, and the wildcard switch. */
+export interface OriginsView {
+  data: OriginInfo[];
+  blocked: BlockedOrigin[];
+  /** True when the gateway owner allows `https://*.example.com` entries. */
+  wildcardsEnabled: boolean;
 }
 
 export interface InviteInfo {
