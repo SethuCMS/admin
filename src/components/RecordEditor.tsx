@@ -10,11 +10,13 @@ import {
   type DraftInfo,
   type RecordData,
 } from '../api';
+import { useGatewayEvents } from '../auth';
 import { contentHref, navigate } from '../router';
 import { useAsync } from '../useAsync';
 import { FieldInput } from './FieldInput';
 import { useFieldVisibility } from '../lib/fieldVisibility';
 import { PreviewPane } from './PreviewPane';
+import { ScheduleBox } from './ScheduleBox';
 
 /**
  * What the editor is open on: a published record, a brand-new record (no draft
@@ -171,6 +173,9 @@ function EditorForm({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>(
     'idle',
   );
+  // True after a draft save failed. The edits are still in the form; this
+  // drives the "Not saved" badge and the Try again button.
+  const [saveFailed, setSaveFailed] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [staleDraft, setStaleDraft] = useState(false);
@@ -178,6 +183,7 @@ function EditorForm({
   const [confirm, setConfirm] = useState<'discard' | 'delete' | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
 
   // Edits not sent yet, the latest draft, and a queue so saves never overlap.
   const dirty = useRef<Set<string>>(new Set());
@@ -265,12 +271,14 @@ function EditorForm({
         setDraft(saved);
         setFieldErrors({});
         setSaveState('saved');
+        setSaveFailed(false);
         return saved;
       } catch (error) {
         for (const name of names) {
           dirty.current.add(name);
         } // keep the edits so nothing is lost
         setSaveState('idle');
+        setSaveFailed(true);
         applyError(error);
         return draftRef.current;
       }
@@ -283,6 +291,26 @@ function EditorForm({
 
   // Cancel a pending autosave on unmount.
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  // While a save has failed the edits exist only on this page: try again as
+  // soon as the browser is back online, and warn before the tab is closed.
+  useEffect(() => {
+    if (!saveFailed) {
+      return;
+    }
+    const retry = (): void => {
+      void flush();
+    };
+    const warn = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+    };
+    window.addEventListener('online', retry);
+    window.addEventListener('beforeunload', warn);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.removeEventListener('beforeunload', warn);
+    };
+  }, [saveFailed, flush]);
 
   // Update the screen immediately, then debounce the network save.
   const change = (name: string, value: unknown) => {
@@ -343,6 +371,65 @@ function EditorForm({
     }
   };
 
+  // Schedule (or reschedule) a publish. The latest edits are sent first, so
+  // the scheduled draft is exactly what is on screen.
+  const schedule = async (when: string) => {
+    setScheduling(true);
+    setProblem(null);
+    try {
+      const saved = await flush();
+      if (!saved || dirty.current.size > 0) {
+        return; // a save problem is already shown
+      }
+      const updated = await gateway.scheduleDraft(
+        connectionId,
+        collectionName,
+        saved.id,
+        when,
+      );
+      draftRef.current = updated;
+      setDraft(updated);
+    } catch (error) {
+      applyError(error);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const cancelSchedule = async () => {
+    if (!draftRef.current) {
+      return;
+    }
+    setScheduling(true);
+    try {
+      const updated = await gateway.cancelSchedule(
+        connectionId,
+        collectionName,
+        draftRef.current.id,
+      );
+      draftRef.current = updated;
+      setDraft(updated);
+    } catch (error) {
+      applyError(error);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  // A scheduled publish can happen while this page is open. Show the result
+  // unless there are edits waiting to be saved.
+  useGatewayEvents((event) => {
+    if (
+      event.type === 'draft.published' &&
+      'draftId' in event &&
+      event.draftId === draftRef.current?.id &&
+      dirty.current.size === 0 &&
+      !publishing
+    ) {
+      reload();
+    }
+  });
+
   // Removes the draft only; the published record is untouched.
   const discard = async () => {
     setConfirm(null);
@@ -382,7 +469,9 @@ function EditorForm({
   const hasUnsaved = dirty.current.size > 0 || saveState === 'saving';
   const status = !canEdit
     ? 'Read-only'
-    : hasDraftChanges || hasUnsaved
+    : saveFailed
+      ? 'Not saved'
+      : hasDraftChanges || hasUnsaved
       ? 'Unpublished changes'
       : isNew
         ? 'New, nothing entered yet'
@@ -422,7 +511,7 @@ function EditorForm({
             <h2>{heading}</h2>
             <p className="editor-status">
               <span
-                className={`status status-${!canEdit ? 'readonly' : hasDraftChanges || hasUnsaved ? 'draft' : 'published'}`}
+                className={`status status-${!canEdit ? 'readonly' : saveFailed ? 'error' : hasDraftChanges || hasUnsaved ? 'draft' : 'published'}`}
               >
                 {status}
               </span>
@@ -461,6 +550,17 @@ function EditorForm({
           ) : null}
         </header>
 
+        {canEdit ? (
+          <ScheduleBox
+            publishAt={draft?.publishAt}
+            failure={draft?.scheduleError}
+            ready={hasDraftChanges || hasUnsaved}
+            busy={scheduling}
+            onSchedule={(when) => void schedule(when)}
+            onCancel={() => void cancelSchedule()}
+          />
+        ) : null}
+
         {!canEdit ? (
           <p className="notice" role="note">
             {detail.mode === 'read_only'
@@ -471,6 +571,19 @@ function EditorForm({
         {problem ? (
           <p className="form-error" role="alert">
             {problem}
+            {saveFailed ? (
+              <>
+                {' '}
+                Your edits are still on this page.{' '}
+                <button
+                  className="link-button"
+                  type="button"
+                  onClick={() => void flush()}
+                >
+                  Try again
+                </button>
+              </>
+            ) : null}
           </p>
         ) : null}
         {staleDraft ? (
@@ -607,7 +720,9 @@ function EditorForm({
                     Discard changes
                   </button>
                 ) : null}
-                {!isNew && detail.access.delete ? (
+                {!isNew &&
+                detail.access.delete &&
+                detail.ui?.singleton !== true ? (
                   <button
                     className="button button-danger-quiet"
                     type="button"

@@ -13,6 +13,7 @@ export function ConnectGateway() {
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -33,11 +34,25 @@ export function ConnectGateway() {
       saveGateway(url);
       window.location.reload();
     } catch {
+      // A browser gives the same failure for "not running" and "not allowed
+      // here" (CORS), so name both and give the address to add.
       setError(
-        `Could not reach ${url}. Check that the gateway is running and the address is right. ` +
-          `If it is, add ${window.location.origin} to SETHUCMS_ALLOWED_ORIGINS on the gateway and restart it.`,
+        `Could not reach ${url}. Check that the gateway is running, that the address is right, ` +
+          `and that an https page is not calling an http gateway. If all of that is fine, the gateway is ` +
+          `probably refusing this site: add ${window.location.origin} to SETHUCMS_ALLOWED_ORIGINS on the gateway and restart it.`,
       );
+      setCopied(false);
       setBusy(false);
+    }
+  };
+
+  // Copies this site's address so it can be pasted into the gateway settings.
+  const copyOrigin = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      setCopied(true);
+    } catch {
+      setCopied(false); // clipboard blocked: the address is shown in the message
     }
   };
 
@@ -72,9 +87,18 @@ export function ConnectGateway() {
             />
           </label>
           {error ? (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
+            <>
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+              <button
+                className="button button-small button-outline"
+                type="button"
+                onClick={copyOrigin}
+              >
+                {copied ? 'Copied' : `Copy ${window.location.origin}`}
+              </button>
+            </>
           ) : null}
           <button className="button" type="submit" disabled={busy || address.trim() === ''}>
             {busy ? 'Checking…' : 'Continue'}

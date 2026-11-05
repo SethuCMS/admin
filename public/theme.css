@@ -1,0 +1,37 @@
+/*
+ * Your brand, without rebuilding the admin.
+ *
+ * Every colour, the font and the corner radius are CSS variables. Put your own
+ * values below and reload. This file is served as-is: edit it in the folder the
+ * gateway serves (SETHUCMS_ADMIN_DIR) or in `public/` before building.
+ *
+ * Use `:root:root` (not `:root`) so these win over the built-in values,
+ * including the built-in dark mode.
+ *
+ * Keep text readable: aim for a contrast ratio of at least 4.5:1 for
+ *   --ink on --paper and on --surface,   --ink-soft on --surface,
+ *   --cobalt on --surface,               --cobalt-ink on --cobalt,
+ *   --ok, --warn and --bad on --surface.
+ * (A free checker: https://webaim.org/resources/contrastchecker/)
+ *
+ * Example, a green brand (remove the comment marks to try it):
+ *
+ * :root:root {
+ *   --cobalt: #0b6b4f;
+ *   --cobalt-wash: #e3f2ec;
+ *   --radius: 10px;
+ * }
+ * @media (prefers-color-scheme: dark) {
+ *   :root:root {
+ *     --cobalt: #5fd1a5;
+ *     --cobalt-ink: #06281d;
+ *     --cobalt-wash: #12372b;
+ *   }
+ * }
+ *
+ * Variables you can change: --paper --surface --ink --ink-soft --line
+ * --line-strong --harbor --harbor-ink --harbor-soft --cobalt --cobalt-ink
+ * --cobalt-wash --ok --warn --bad --font --mono --radius
+ *
+ * The logo and tab icon are the files `logo.svg` and `favicon.svg` next to this one.
+ */
