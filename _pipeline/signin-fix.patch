@@ -1,0 +1,128 @@
+diff --git a/src/api/gateway.ts b/src/api/gateway.ts
+--- a/src/api/gateway.ts	2026-11-05 09:51:52.136680057 +0000
++++ b/src/api/gateway.ts	2026-11-05 09:51:52.516152857 +0000
+@@ -126,7 +126,16 @@
+             }
+           : {}),
+       }),
+-      () => ({ sso: false, google: false, github: false }),
++      (error: unknown) => ({
++        sso: false,
++        google: false,
++        github: false,
++        // A browser reports a CORS refusal exactly like a dead network.
++        ...(error instanceof GatewayError &&
++        (error.code === 'NETWORK' || error.code === 'TIMEOUT')
++          ? { unreachable: true }
++          : {}),
++      }),
+     ),
+   /** Trade a Firebase ID token for a SethuCMS session. */
+   firebaseLogin: async (
+@@ -520,7 +529,13 @@
+     ),
+   removeInvite: (id: string) =>
+     request<void>('DELETE', `/v1/admin/invites/${enc(id)}`),
+-  origins: () => request<OriginsView>('GET', '/v1/admin/origins'),
++  // An older gateway answers with only the allowed list, so fill in what it leaves out.
++  origins: (): Promise<OriginsView> =>
++    request<Partial<OriginsView>>('GET', '/v1/admin/origins').then((r) => ({
++      data: r.data ?? [],
++      blocked: r.blocked ?? [],
++      wildcardsEnabled: r.wildcardsEnabled === true,
++    })),
+   addOrigin: (origin: string) =>
+     request<{ data: OriginInfo }>('POST', '/v1/admin/origins', {
+       body: { origin },
+diff --git a/src/api/wire.ts b/src/api/wire.ts
+--- a/src/api/wire.ts	2026-11-05 09:51:52.136388943 +0000
++++ b/src/api/wire.ts	2026-11-05 09:51:52.516119588 +0000
+@@ -373,6 +373,11 @@
+   google: boolean;
+   /** Direct GitHub sign-in is set up. */
+   github: boolean;
++  /**
++   * The gateway could not be reached at all (no network, or the browser refused
++   * the call because this site is not on the gateway's CORS list).
++   */
++  unreachable?: boolean;
+   /** Firebase Authentication is set up; public web settings for the popup. */
+   firebase?: {
+     apiKey: string;
+diff --git a/src/components/SignIn.tsx b/src/components/SignIn.tsx
+--- a/src/components/SignIn.tsx	2026-11-05 09:51:51.977491832 +0000
++++ b/src/components/SignIn.tsx	2026-11-05 09:51:52.515315891 +0000
+@@ -5,6 +5,7 @@
+ import { useEffect, useState, type FormEvent } from 'react';
+ import { useAuth } from '../auth';
+ import { SetupKey } from './SetupKey';
++import { contentOnly } from '../lib/mode';
+ import {
+   absoluteUrl,
+   askForGateway,
+@@ -379,6 +380,40 @@
+     </>
+   );
+ 
++  // The page could not talk to the gateway at all. Most often this site is not on the
++  // gateway's CORS list. Say so, instead of showing the first-run setup form.
++  const cannotReach = loaded && !usingSampleData && social.unreachable === true;
++  // On a customer's own website (/sethu) nobody should see first-run setup or token forms.
++  const noSignInMethod = contentOnly && loaded && !hasSocial && !totp && !cannotReach;
++  const gatewayHost = (() => {
++    try {
++      return new URL(absoluteUrl('/v1/health'), window.location.href).host;
++    } catch {
++      return 'the gateway';
++    }
++  })();
++
++  const unreachablePanel = (
++    <div role="alert">
++      <p className="form-error">
++        This page could not reach the gateway at <code>{gatewayHost}</code>.
++      </p>
++      <p className="muted small">
++        If you run this site, add <code>{window.location.origin}</code> to the
++        gateway&apos;s CORS origins (the <code>SETHUCMS_ALLOWED_ORIGINS</code>{' '}
++        setting, or <strong>CORS origins</strong> in the admin app), then reload.
++        Otherwise check your connection and try again.
++      </p>
++      <button
++        className="button"
++        type="button"
++        onClick={() => window.location.reload()}
++      >
++        Try again
++      </button>
++    </div>
++  );
++
+   return (
+     <div className="signin">
+       <div className="signin-card">
+@@ -398,7 +433,14 @@
+           </p>
+         ) : null}
+ 
+-        {social.firebase?.workspaces ? (
++        {cannotReach ? (
++          unreachablePanel
++        ) : noSignInMethod ? (
++          <p className="muted">
++            Google and GitHub sign-in is not set up on this gateway yet. Ask the
++            person who runs it to turn it on.
++          </p>
++        ) : social.firebase?.workspaces ? (
+           <>
+             <p className="muted small">
+               {joiningWorkspace()
+@@ -415,7 +457,7 @@
+ 
+         {/* In workspace mode everyone signs in with Google or GitHub, so the
+             API-token form is hidden. Other gateways keep it for recovery. */}
+-        {loaded && !hasSocial && !social.firebase?.workspaces ? (
++        {loaded && !hasSocial && !cannotReach && !contentOnly && !social.firebase?.workspaces ? (
+           <details className="signin-alt">
+             <summary>Use an API token instead</summary>
+             {tokenForm}

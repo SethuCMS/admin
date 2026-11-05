@@ -1,0 +1,86 @@
+name: Deploy (Vercel)
+
+# On every push to main: type check, run the tests, deploy a clean copy to the sethucms-admin
+# Vercel project (Vercel builds it with the project's own settings), then check the live site.
+# Needs the repository secrets VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID (Settings, Secrets and variables, Actions).
+# When they are missing, a push only prints a warning and skips the deploy, so main does not turn red.
+# A manual run (workflow_dispatch) still fails, because there you asked for a deploy.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Test, deploy and check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://sethucms-admin.vercel.app' }}
+    steps:
+      - name: Check Vercel credentials
+        id: creds
+        run: |
+          missing=""
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -z "$missing" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::Repository secrets not set:$missing"
+            exit 1
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Deploy skipped. Repository secrets not set:$missing"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.creds.outputs.ready == 'true'
+      - uses: pnpm/action-setup@v6
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v7
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+        if: steps.creds.outputs.ready == 'true'
+      - run: pnpm typecheck
+        if: steps.creds.outputs.ready == 'true'
+      - run: node --test
+        if: steps.creds.outputs.ready == 'true'
+
+      # A clean copy of the commit, outside git: the CLI would otherwise attach the commit author,
+      # and Vercel blocks the deploy when that account is not on the Vercel team.
+      - name: Deploy to Vercel (production)
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          site="$RUNNER_TEMP/admin"
+          mkdir -p "$site"
+          git archive HEAD | tar -x -C "$site"
+          cd "$site"
+          npx --yes vercel@65.5.0 deploy --prod --yes
+
+      - name: Check the live site
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE_URL/" || true)
+            [ "$code" = "200" ] && break
+            echo "Attempt $attempt: $SITE_URL answered $code"; sleep 10
+          done
+          if [ "$code" != "200" ]; then echo "::error::The site is not answering at $SITE_URL"; exit 1; fi

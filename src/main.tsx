@@ -5,10 +5,15 @@
 import '@fontsource-variable/schibsted-grotesk';
 import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
+import { inject } from '@vercel/analytics';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
+
+// Count page views with Vercel Web Analytics: no cookies, and only the page
+// address is sent. The admin uses #/ addresses, which are never sent.
+inject();
 
 // Fail loudly if index.html lost its mount point, rather than rendering
 // nothing.

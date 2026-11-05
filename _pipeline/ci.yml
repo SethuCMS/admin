@@ -1,0 +1,62 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Type check and build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm typecheck
+      # The tests are TypeScript files that Node runs directly. That needs Node 22, so Node 20 only type checks and builds.
+      - name: Run the tests
+        if: matrix.node == 22
+        run: pnpm test
+      - name: Build for a separate API address
+        run: pnpm build
+      - name: Build for the gateway to serve (same address)
+        run: pnpm build:embedded
+      - name: Build the content-only editor (served at /sethu)
+        run: VITE_API_URL=ask VITE_CONTENT_ONLY=true pnpm vite build --base=/sethu/ --outDir dist-content
+      - name: Check that fonts are bundled, not loaded from the internet
+        run: |
+          if grep -rqE "fonts\.(googleapis|gstatic)\.com" dist; then echo "dist loads fonts from the internet"; exit 1; fi
+          ls dist/assets | grep -q woff2
+      - uses: actions/upload-artifact@v7
+        if: matrix.node == 22
+        with:
+          name: admin-dist
+          path: dist
+          retention-days: 7
+
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          [ "${{ needs.build.result }}" = "success" ]
