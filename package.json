@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "preview": "vite preview",
     "build:embedded": "tsc --noEmit && VITE_API_URL=/ vite build",
     "build:hosted": "tsc --noEmit && VITE_API_URL=ask vite build",
