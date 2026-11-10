@@ -1,15 +1,149 @@
 /* The project picker in the sidebar and the project list in Settings. */
-.project-switcher select {
+/* The sidebar project picker: a button that opens the list in place. */
+.project-switcher {
+  padding: 0;
+  gap: 0;
+}
+.project-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
-  min-height: 36px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.project-trigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.project-trigger:focus-visible,
+.project-row:focus-visible,
+.project-add:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.project-trigger-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.project-trigger-text .workspace-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-chevron {
+  flex: none;
+  color: var(--harbor-soft);
+  transition: transform 0.15s ease;
+}
+.project-chevron.is-open {
+  transform: rotate(180deg);
+}
+.project-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 8px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.project-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+  max-height: 240px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--harbor-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.project-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+.project-row.is-current {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
   font-weight: 600;
+}
+.project-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.project-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-row-meta {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--harbor-soft);
+}
+.project-row.is-current .project-row-meta {
+  color: #fff;
+}
+.project-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--harbor-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.project-add:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
 }
 .project-new {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
-.project-add {
-  justify-self: start;
+.project-new-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.project-limit {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--harbor-soft);
+}
+.project-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 123, 123, 0.12);
+  color: #ffb4b4;
+  font-size: 0.8125rem;
 }
 .project-actions {
   display: grid;

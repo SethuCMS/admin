@@ -2,7 +2,8 @@
  * Projects: one person can have several, each a workspace of its own. The
  * gateway keeps the list; this file only asks for it and switches between them.
  */
-import { currentWorkspace, enterWorkspace, request, setToken } from './client';
+import { currentWorkspace, enterWorkspace, request, setToken, token } from './client';
+import { gateway } from './gateway';
 import type { Role } from './wire';
 
 /** One project in a person's list. */
@@ -59,12 +60,27 @@ export const projectsApi = {
 };
 
 /**
- * Work in another project: use its session, then reload so every page starts
- * clean (nothing from the old project stays on screen).
+ * Work in another project: use its session, check the gateway accepts it, then
+ * reload so every page starts clean (nothing from the old project stays on
+ * screen). If the new project cannot be opened, the old one is put back and the
+ * reason is thrown, so the person stays where they were and sees why.
  */
-export function enterProject(entered: EnteredProject): void {
+export async function enterProject(entered: EnteredProject): Promise<void> {
+  const before = { workspace: currentWorkspace(), token };
   enterWorkspace(entered.workspace);
   setToken(entered.token);
-  window.location.hash = entered.role === 'admin' ? '#/' : '#/content';
+  try {
+    await gateway.me();
+  } catch (failure) {
+    enterWorkspace(before.workspace);
+    setToken(before.token);
+    throw failure;
+  }
+  // An invitation link (?workspace=) must not pull the next page load back to
+  // the project we are leaving.
+  const url = new URL(window.location.href);
+  url.searchParams.delete('workspace');
+  url.hash = entered.role === 'admin' ? '#/' : '#/content';
+  window.history.replaceState(null, '', url.toString());
   window.location.reload();
 }
