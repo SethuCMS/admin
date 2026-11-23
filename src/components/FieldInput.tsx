@@ -15,6 +15,7 @@ import {
 import { JsonInput } from './fields/JsonInput';
 import { LinkList } from './fields/LinkList';
 import { ReferenceSelect } from './fields/ReferenceSelect';
+import { StructuredInput, canShowAsForm } from './fields/StructuredInput';
 
 /** Props for one editable field. */
 interface FieldInputProps {
@@ -39,7 +40,7 @@ export function FieldInput({
   error,
 }: FieldInputProps) {
   const id = useId();
-  // Files show their preview; the raw JSON opens only on request.
+  // Files and lists show as a form; the raw JSON opens only on request.
   const [code, setCode] = useState(false);
   // Masked, read-only and form-disabled fields all behave the same: shown but
   // not editable.
@@ -157,6 +158,9 @@ export function FieldInput({
           field.type === 'json' &&
           widget !== 'code' &&
           (widget === 'image' || widget === 'file' || showsFile(field.name, value));
+        // Lists and objects read as a form unless the schema asks for code.
+        const form =
+          !file && widget !== 'code' && canShowAsForm(value, field.type === 'array');
         control = (
           <>
             {file ? (
@@ -167,17 +171,26 @@ export function FieldInput({
                 canUpload={canUpload && !locked}
               />
             ) : null}
-            {file ? (
+            {!file && form && !code ? (
+              <StructuredInput
+                id={id}
+                value={value}
+                onChange={onChange}
+                disabled={locked}
+                label={field.ui?.label ?? field.name}
+              />
+            ) : null}
+            {file || form ? (
               <button
                 type="button"
                 className="button button-quiet code-toggle"
                 aria-expanded={code}
                 onClick={() => setCode(!code)}
               >
-                {code ? 'Hide code' : 'Edit as code'}
+                {code ? (file ? 'Hide code' : 'Show as form') : 'Edit as code'}
               </button>
             ) : null}
-            {!file || code ? (
+            {(!file && !form) || code ? (
               <JsonInput {...common} value={value} onChange={onChange} />
             ) : null}
           </>

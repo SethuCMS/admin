@@ -88,8 +88,29 @@
 .field-picker > summary { cursor: pointer; padding: 4px 0; font-weight: 500; }
 .field-picker-list { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 8px 0; align-items: center; }
 .field-picker .check { display: inline-flex; gap: 6px; align-items: center; }
-.code-toggle { margin-top: 6px; }
+.code-toggle { margin-top: 6px; justify-self: start; }
 
 .schema-panel { margin: 24px 0; max-width: 720px; }
 .schema-collection { margin: 8px 0; }
 .schema-collection pre { overflow: auto; padding: 12px; border: 1px solid var(--line, #ddd); border-radius: 6px; font-size: 13px; }
+
+/* Readable form for JSON and array fields. */
+.sf { display: grid; gap: 8px; }
+.sf-list { display: grid; gap: 8px; }
+.sf-item { display: flex; gap: 8px; align-items: flex-start; }
+.sf-item-body { flex: 1; min-width: 0; }
+.sf-item-card {
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.sf-item-card .sf-item-title { flex-basis: 100%; }
+.sf-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.button-icon { padding: 4px 10px; min-width: 32px; line-height: 1.2; }
+.sf-add { justify-self: start; }
+.sf-object { display: grid; gap: 10px; }
+.sf-row { display: grid; gap: 4px; }
+.sf-key { font-size: var(--step--1); color: var(--ink-soft); font-weight: 500; }
+.sf-object .sf-object { padding-left: 12px; border-left: 2px solid var(--line); }

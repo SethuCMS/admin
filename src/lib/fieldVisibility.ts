@@ -4,11 +4,13 @@
  * Nothing is hidden for good: hidden fields keep their stored values and are
  * saved unchanged. The choice is remembered in this browser only, per
  * connection and collection. Until the person chooses, fields that sync tools
- * add for bookkeeping (names starting with sanity_) stay out of the way.
+ * add for bookkeeping (names starting with sanity_, and _system) stay out of
+ * the way.
  */
 import { useCallback, useState } from 'react';
 
-const bookkeeping = (name: string): boolean => /^sanity_/i.test(name);
+const bookkeeping = (name: string): boolean =>
+  /^sanity_/i.test(name) || /^_system$/.test(name);
 
 const keyOf = (connectionId: string, collection: string): string =>
   `sethucms.fields.${connectionId}.${collection}`;
